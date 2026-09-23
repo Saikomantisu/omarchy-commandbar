@@ -68,19 +68,23 @@ Item {
 
   function open(payloadJson) {
     root.opened = true
-    input.text = ""
     root.selectedIndex = 0
     root.refreshRates()
     root.refreshZones()
-    Qt.callLater(function() { input.forceActiveFocus() })
+    root.recompute()   // the kept query may be time-sensitive ("time", "3pm to tokyo")
+    // Like Spotlight: the last query comes back selected, so typing replaces it
+    // and an arrow key keeps it.
+    Qt.callLater(function() { input.forceActiveFocus(); input.selectAll() })
   }
 
   function close() {
     root.opened = false
+    root.saveLastQuery()
   }
 
   function dismiss() {
     root.opened = false
+    root.saveLastQuery()
     if (root.shell && typeof root.shell.hide === "function")
       root.shell.hide((root.manifest && root.manifest.id) || "io.github.saikomantisu.commandbar")
   }
@@ -205,6 +209,30 @@ Item {
       console.warn("commandbar: bad rates cache: " + e)
     }
     if (root.opened) root.recompute()
+  }
+
+  // ---------------------------------------------------------------- last query
+
+  // Kept in memory between opens (the plugin stays loaded) and written to the
+  // cache on close so it also survives a shell restart.
+  property bool lastQueryLoaded: false
+
+  function saveLastQuery() {
+    if (!root.lastQueryLoaded || lastQueryFile.text() === input.text) return
+    Quickshell.execDetached(["mkdir", "-p", root.cacheDir])
+    lastQueryFile.setText(input.text)
+  }
+
+  FileView {
+    id: lastQueryFile
+    path: root.cacheDir + "/last-query"
+    printErrors: false
+    atomicWrites: true
+    onLoaded: {
+      if (!root.lastQueryLoaded && !input.text) input.text = text().replace(/\n+$/, "")
+      root.lastQueryLoaded = true
+    }
+    onLoadFailed: root.lastQueryLoaded = true
   }
 
   FileView {

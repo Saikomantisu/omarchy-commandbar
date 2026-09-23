@@ -12,6 +12,8 @@ A Spotlight/Raycast-style command bar for the Omarchy shell. Press a hotkey, typ
 
 Keys: **↑/↓** (or Ctrl+N/P) move the selection, **Enter** copies/opens/runs the selected row, **Tab** completes a keyword, **Esc** clears the text and a second **Esc** closes the bar.
 
+The bar remembers your last query, even across shell restarts. It comes back selected when you reopen, so typing replaces it and an arrow key keeps it. Close with Esc Esc to start fresh next time.
+
 ## Install
 
 ```sh
