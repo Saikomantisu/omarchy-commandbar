@@ -126,6 +126,8 @@ To enable it, import it in [`providers/index.js`](providers/index.js), add it to
 
 Test providers without the shell by running `node tests/run.js`.
 
+To contribute, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 MIT
