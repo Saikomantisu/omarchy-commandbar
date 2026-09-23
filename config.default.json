@@ -1,4 +1,5 @@
 {
+  "hotkey": "SUPER + PERIOD",
   "providers": ["commands", "math", "currency", "time", "emoji", "processes"],
   "math": { "precision": 10 },
   "currency": { "home": "LKR", "favorites": ["USD", "EUR", "INR"] },

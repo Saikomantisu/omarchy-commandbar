@@ -149,6 +149,34 @@ Item {
   onConfigChanged: {
     if (root.opened) root.recompute()
     root.zonesFetchedAt = 0   // the zone list may have changed
+    root.applyHotkey()
+  }
+
+  // ---------------------------------------------------------------- hotkey
+
+  // The binding itself lives in Hyprland's config (hypr/commandbar.lua reads
+  // "hotkey" from the same files). When the configured key changes, reload
+  // Hyprland so it takes effect now. The first value seen after startup is
+  // what Hyprland already loaded, so it only needs remembering.
+  property var appliedHotkey: null   // null until both config files have loaded
+  property bool configsLoaded: false
+
+  function applyHotkey() {
+    if (!root.configsLoaded) return
+    var key = String(root.config.hotkey || "").trim()
+    if (root.appliedHotkey === null) { root.appliedHotkey = key; return }
+    if (key === root.appliedHotkey) return
+    root.appliedHotkey = key
+    console.log("commandbar: hotkey changed to \"" + key + "\", reloading Hyprland config")
+    Quickshell.execDetached(["hyprctl", "reload", "config-only"])
+  }
+
+  // Both config files report in before the first comparison, so a user
+  // override isn't mistaken for a change at startup.
+  property int configLoads: 0
+  function configLoaded() {
+    root.configLoads++
+    if (root.configLoads >= 2 && !root.configsLoaded) { root.configsLoaded = true; root.applyHotkey() }
   }
 
   // ---------------------------------------------------------------- config
@@ -160,6 +188,7 @@ Item {
     onLoaded: {
       try { root.defaultConfig = Engine.parseJsonc(text()) }
       catch (e) { console.warn("commandbar: bad config.default.json: " + e) }
+      root.configLoaded()
     }
     onFileChanged: reload()
   }
@@ -171,8 +200,9 @@ Item {
     onLoaded: {
       try { root.userConfig = Engine.parseJsonc(text()) }
       catch (e) { console.warn("commandbar: bad " + root.userConfigPath + ": " + e); root.userConfig = ({}) }
+      root.configLoaded()
     }
-    onLoadFailed: root.userConfig = ({})
+    onLoadFailed: { root.userConfig = ({}); root.configLoaded() }
     onFileChanged: reload()
   }
 

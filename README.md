@@ -26,12 +26,15 @@ The bar remembers your last query, even across shell restarts. It comes back sel
 omarchy plugin add https://github.com/Saikomantisu/omarchy-commandbar --enable
 ```
 
-Then bind a key in `~/.config/hypr/bindings.lua`:
+Then load its hotkey in `~/.config/hypr/bindings.lua`:
 
 ```lua
-o.bind("SUPER + PERIOD", "Command bar", "omarchy-shell shell toggle io.github.saikomantisu.commandbar")
-hl.layer_rule({ match = { namespace = "^omarchy-commandbar$" }, no_anim = true, animation = "none" })
+local commandbar = os.getenv("HOME") .. "/.config/omarchy/plugins/io.github.saikomantisu.commandbar/hypr/commandbar.lua"
+local commandbar_file = io.open(commandbar)
+if commandbar_file then commandbar_file:close(); dofile(commandbar) end
 ```
+
+The default hotkey is **Super + Period**. To change it, set `"hotkey"` in your config (below). It takes effect as soon as you save. `"hotkey": ""` leaves the bar unbound.
 
 Requires `curl` and `wl-copy` (`wl-clipboard`). Both ship with Omarchy.
 
@@ -42,7 +45,7 @@ omarchy plugin remove io.github.saikomantisu.commandbar
 rm -rf ~/.cache/omarchy-commandbar ~/.config/omarchy/extensions/commandbar.json
 ```
 
-Then delete the two keybinding lines.
+Then delete the three hotkey lines from `bindings.lua`.
 
 ## Configure
 
@@ -50,6 +53,8 @@ Defaults live in [`config.default.json`](config.default.json). Put overrides in 
 
 ```jsonc
 {
+  // Any Hyprland key combo, e.g. "SUPER + ALT + C".
+  "hotkey": "SUPER + PERIOD",
   // Which providers run, in tie-break order.
   "providers": ["commands", "math", "currency", "time"],
   "currency": { "home": "LKR", "favorites": ["USD", "EUR", "INR"] },
