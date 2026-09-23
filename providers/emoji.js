@@ -34,7 +34,7 @@ var provider = {
     { title: "Search Emoji", keywords: "emoji emojis emoticon smiley symbols", text: "Type : then a word", complete: ":" }
   ],
   help: [
-    { example: ":fire", text: "Search emoji (or “emoji fire”); Enter types it into the app" }
+    { title: "Emoji", examples: [":fire", "emoji party"], exact: true }
   ],
   match: function(query, ctx) {
     var m = query.match(/^\s*(?::|emoji\s+|emoji$)\s*(.*)$/i)

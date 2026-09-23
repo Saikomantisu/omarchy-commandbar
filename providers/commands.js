@@ -22,7 +22,8 @@ var provider = {
   id: "commands",
   name: "Commands",
   icon: "󰘳",
-  // One help row per configured keyword, built from ctx.settings.
+  // Listed under "Keywords" in the ? menu, one row per configured keyword.
+  helpSection: "Keywords",
   help: function(ctx) {
     var list = Array.isArray(ctx.settings) ? ctx.settings : []
     var out = []
@@ -31,9 +32,10 @@ var provider = {
       if (!cmd || !cmd.keyword || !(cmd.open || cmd.run)) continue
       var kw = String(cmd.keyword)
       out.push({
-        example: takesQuery(cmd) ? kw + " " : kw,
-        label: takesQuery(cmd) ? kw + " …" : kw,
+        title: takesQuery(cmd) ? kw + " …" : kw,
         text: cmd.title || kw,
+        examples: [takesQuery(cmd) ? kw + " " : kw],
+        exact: true,
         icon: cmd.icon || (cmd.open ? "󰖟" : "󰘳")
       })
     }

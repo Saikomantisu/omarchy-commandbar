@@ -105,8 +105,7 @@ var provider = {
     return [{ title: "Convert Currency", keywords: "currency exchange rate rates money forex fx", text: "Live exchange rates, cached offline", complete: example, select: true }]
   },
   help: [
-    { example: "100 usd to eur", text: "Convert between currencies (also “in”, $50, €20)" },
-    { example: "50 eur", text: "Amount in your home and favorite currencies" }
+    { title: "Currency", examples: ["100 usd to eur", "$50", "50 eur"] }
   ],
   match: function(query, ctx) {
     var settings = ctx.settings || {}

@@ -21,7 +21,7 @@ var provider = {
     { title: "Kill Process", keywords: "kill quit process processes force end task manager", text: "Quit a running app or process", complete: "kill " }
   ],
   help: [
-    { example: "kill ", text: "Quit a running process (kill -9 … to force)" }
+    { title: "Kill process", examples: ["kill ", "kill chrome", "kill -9 node"], exact: true }
   ],
   match: function(query, ctx) {
     var m = query.match(/^\s*kill(?:\s+(-9|-KILL|--force))?(?:\s+(.*))?$/i)

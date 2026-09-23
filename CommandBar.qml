@@ -55,7 +55,17 @@ Item {
   property int contentMargin: Style.spacing.panelPadding
   property int inputHeight: Math.max(Style.space(34), Style.font.heading + Style.spacing.controlPaddingY * 2)
   property int rowHeight: Math.max(Style.space(46), Style.font.heading + Style.font.bodySmall + Style.spacing.md * 2)
+  property int sectionHeight: Math.max(Style.space(26), Style.font.caption + Style.spacing.md * 2)
+  // Results show up to 7 rows before scrolling; the ? list is allowed to
+  // grow so it fits without scrolling, as far as the screen allows.
   readonly property int maxRows: 7
+  readonly property bool showingHelp: root.rows.length > 0 && !!root.rows[0].section
+  readonly property real listHeight: {
+    var total = 0
+    for (var i = 0; i < root.rows.length && (root.showingHelp || i < root.maxRows); i++)
+      total += root.rowHeight + (root.rows[i].section ? root.sectionHeight : 0)
+    return Math.min(total, panel.height * 0.62)
+  }
   property int cardWidth: Math.min(Style.space(640), panel.width - Style.gapsOut * 2)
 
   // Nothing is listed until there's a query, so an empty bar is just the input.
@@ -419,7 +429,7 @@ Item {
       id: card
       width: root.cardWidth
       height: contentTopInset + contentBottomInset + root.inputHeight
-        + (root.rows.length > 0 ? Style.spacing.md + 1 + Style.spacing.md + Math.min(root.rows.length, root.maxRows) * root.rowHeight : 0)
+        + (root.rows.length > 0 ? Style.spacing.md + 1 + Style.spacing.md + root.listHeight : 0)
       radius: root.cornerRadius
       anchors.horizontalCenter: parent.horizontalCenter
       y: Math.round(panel.height * 0.24)
@@ -511,93 +521,118 @@ Item {
         ListView {
           id: list
           width: parent.width
-          height: Math.min(root.rows.length, root.maxRows) * root.rowHeight
+          height: root.listHeight
           visible: root.rows.length > 0
           model: root.rows
           clip: true
           boundsBehavior: Flickable.StopAtBounds
           currentIndex: root.selectedIndex
 
-          delegate: Rectangle {
+          delegate: Item {
             id: rowItem
             required property int index
             required property var modelData
             readonly property bool selected: index === root.selectedIndex
+            // Help rows can open a section ("Features", "Keywords"): a small
+            // heading drawn above the row, outside the selectable area.
+            readonly property string section: modelData.section || ""
 
             width: list.width
-            height: root.rowHeight
-            radius: root.cornerRadius
-            color: selected ? root.selectedBackground : "transparent"
+            height: root.rowHeight + (section ? root.sectionHeight : 0)
 
             Text {
-              id: rowIcon
+              visible: rowItem.section !== ""
               anchors.left: parent.left
               anchors.leftMargin: Style.spacing.md
-              anchors.verticalCenter: parent.verticalCenter
-              width: Style.font.display
-              horizontalAlignment: Text.AlignHCenter
-              text: rowItem.modelData.icon || ""
-              color: rowItem.selected ? root.selectedText : root.foreground
-              opacity: rowItem.selected ? 1 : 0.7
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.iconLarge
-            }
-
-            Column {
-              anchors.left: rowIcon.right
-              anchors.leftMargin: Style.spacing.md
-              anchors.right: actionText.left
-              anchors.rightMargin: Style.spacing.md
-              anchors.verticalCenter: parent.verticalCenter
-              spacing: Style.space(2)
-
-              Text {
-                width: parent.width
-                textFormat: Text.PlainText
-                text: rowItem.modelData.title
-                color: rowItem.selected ? root.selectedText : root.foreground
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.heading
-                font.bold: rowItem.index === 0
-                elide: Text.ElideRight
-              }
-
-              Text {
-                width: parent.width
-                visible: text !== ""
-                textFormat: Text.PlainText
-                text: rowItem.modelData.subtitle || ""
-                color: root.foreground
-                opacity: 0.55
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.bodySmall
-                elide: Text.ElideRight
-              }
-            }
-
-            Text {
-              id: actionText
-              anchors.right: parent.right
-              anchors.rightMargin: Style.spacing.md
-              anchors.verticalCenter: parent.verticalCenter
-              text: rowItem.selected ? root.actionLabel(rowItem.modelData) : ""
+              anchors.top: parent.top
+              height: root.sectionHeight
+              verticalAlignment: Text.AlignVCenter
+              text: rowItem.section.toUpperCase()
               color: root.foreground
-              opacity: 0.5
+              opacity: 0.45
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
+              font.letterSpacing: 1
             }
 
-            MouseArea {
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              // Only real pointer movement selects, so a result list that
-              // re-renders under a resting cursor doesn't steal the selection.
-              onPositionChanged: root.selectedIndex = rowItem.index
-              onClicked: {
-                root.selectedIndex = rowItem.index
-                root.activate(rowItem.index)
-                input.forceActiveFocus()
+            Rectangle {
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              height: root.rowHeight
+              radius: root.cornerRadius
+              color: rowItem.selected ? root.selectedBackground : "transparent"
+
+              Text {
+                id: rowIcon
+                anchors.left: parent.left
+                anchors.leftMargin: Style.spacing.md
+                anchors.verticalCenter: parent.verticalCenter
+                width: Style.font.display
+                horizontalAlignment: Text.AlignHCenter
+                text: rowItem.modelData.icon || ""
+                color: rowItem.selected ? root.selectedText : root.foreground
+                opacity: rowItem.selected ? 1 : 0.7
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.iconLarge
+              }
+
+              Column {
+                anchors.left: rowIcon.right
+                anchors.leftMargin: Style.spacing.md
+                anchors.right: actionText.left
+                anchors.rightMargin: Style.spacing.md
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Style.space(2)
+
+                Text {
+                  width: parent.width
+                  textFormat: Text.PlainText
+                  text: rowItem.modelData.title
+                  color: rowItem.selected ? root.selectedText : root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.heading
+                  font.bold: rowItem.index === 0 && !root.showingHelp
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  width: parent.width
+                  visible: text !== ""
+                  textFormat: Text.PlainText
+                  text: rowItem.modelData.subtitle || ""
+                  color: root.foreground
+                  opacity: 0.55
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                  elide: Text.ElideRight
+                }
+              }
+
+              Text {
+                id: actionText
+                anchors.right: parent.right
+                anchors.rightMargin: Style.spacing.md
+                anchors.verticalCenter: parent.verticalCenter
+                text: rowItem.selected ? root.actionLabel(rowItem.modelData) : ""
+                color: root.foreground
+                opacity: 0.5
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                // Only real pointer movement selects, so a result list that
+                // re-renders under a resting cursor doesn't steal the selection.
+                onPositionChanged: root.selectedIndex = rowItem.index
+                onClicked: {
+                  root.selectedIndex = rowItem.index
+                  root.activate(rowItem.index)
+                  input.forceActiveFocus()
+                }
               }
             }
           }

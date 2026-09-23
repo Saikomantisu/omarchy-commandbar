@@ -79,9 +79,13 @@ expect("date", "Date Calculator"); expect("help", "Show All Commands"); expect("
   console.log((ok ? "ok  " : "FAIL") + "  rupee follows home currency → " + inr + " | " + lkr + " | " + rs); if (!ok) fails++ }
 
 const helpRows = q("?")
-const helpOk = helpRows.length === 14 && helpRows[0].title === "12*8 + 15%" && helpRows[9].title === "g …" && helpRows[9].complete === "g " && helpRows.some(r => r.complete === "100 usd to eur") && helpRows.every(r => !r.copy && !r.run)
-console.log((helpOk ? "ok  " : "FAIL") + "  \"?\" help → " + helpRows.length + " rows: " + helpRows.map(r => r.title).join(" | ")); if (!helpOk) fails++
-expect(" ? ", "12*8 + 15%"); expect("?x", null)
+const titles = helpRows.map(r => r.title)
+const helpOk = titles.join("|") === "Calculator|Currency|Time zones|Dates|Emoji|Kill process|g …|yt …|gh …|wiki …|lock"
+  && helpRows[0].section === "Features" && helpRows[6].section === "Keywords" && helpRows.filter(r => r.section).length === 2
+  && helpRows[0].complete === "12*8 + 15%" && helpRows[0].select && helpRows[4].complete === ":fire" && !helpRows[4].select
+  && helpRows[6].complete === "g " && helpRows.every(r => !r.copy && !r.run)
+console.log((helpOk ? "ok  " : "FAIL") + "  \"?\" help → " + titles.join(" | ")); if (!helpOk) fails++
+expect(" ? ", "Calculator"); expect("?x", null)
 const r = q("g foo & bar")[0].run; console.log("      url:", r.target)
 const cmds = Engine.run("x it's; rm -rf ~", { providers: ["commands"], commands: [{ keyword: "x", run: "echo {q}" }] }, {})[0].run
 console.log("      cmd:", cmds.target)
