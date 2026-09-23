@@ -1,11 +1,13 @@
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
 import qs.Commons
 import qs.Ui
 import "lib/Engine.js" as Engine
 import "lib/tzcities.js" as Tz
+import "lib/Hotkey.js" as Hotkey
 
 // Spotlight-style command bar. The UI and the data it needs (config, exchange
 // rates, zone offsets) live here; what a query *means* is decided by the
@@ -170,34 +172,79 @@ Item {
   onConfigChanged: {
     if (root.opened) root.recompute()
     root.zonesFetchedAt = 0   // the zone list may have changed
-    root.applyHotkey()
+    root.ensureHotkey()
   }
 
   // ---------------------------------------------------------------- hotkey
 
-  // The binding itself lives in Hyprland's config (hypr/commandbar.lua reads
-  // "hotkey" from the same files). When the configured key changes, reload
-  // Hyprland so it takes effect now. The first value seen after startup is
-  // what Hyprland already loaded, so it only needs remembering.
-  property var appliedHotkey: null   // null until both config files have loaded
+  // The bar binds its own hotkey in the running Hyprland (hyprctl eval), so
+  // installing the plugin is enough: no config file is edited. Hyprland drops
+  // runtime binds when its config reloads, so this re-runs after every
+  // reload, after config changes, and at startup. lib/Hotkey.js decides what
+  // to bind or unbind; a key that something else already uses is left alone.
+  readonly property string toggleCommand: "omarchy-shell shell toggle io.github.saikomantisu.commandbar"
   property bool configsLoaded: false
+  property bool hotkeyQueued: false
+  property string boundHotkey: ""     // what we bound, so unloading can unbind it
+  property string warnedConflict: ""  // notify once per key, not on every reload
 
-  function applyHotkey() {
+  function ensureHotkey() {
     if (!root.configsLoaded) return
-    var key = String(root.config.hotkey || "").trim()
-    if (root.appliedHotkey === null) { root.appliedHotkey = key; return }
-    if (key === root.appliedHotkey) return
-    root.appliedHotkey = key
-    console.log("commandbar: hotkey changed to \"" + key + "\", reloading Hyprland config")
-    Quickshell.execDetached(["hyprctl", "reload", "config-only"])
+    if (bindsProc.running) { root.hotkeyQueued = true; return }
+    bindsProc.running = true
   }
 
-  // Both config files report in before the first comparison, so a user
-  // override isn't mistaken for a change at startup.
+  function reconcileHotkey(bindsJson) {
+    var hotkey = String(root.config.hotkey || "").trim()
+    var p = Hotkey.plan(bindsJson, hotkey, root.toggleCommand)
+    if (p.lua.length > 0) Quickshell.execDetached(["hyprctl", "eval", p.lua.join("\n")])
+    root.boundHotkey = p.bound ? hotkey : ""
+    if (p.conflict && root.warnedConflict !== hotkey) {
+      root.warnedConflict = hotkey
+      console.warn("commandbar: " + hotkey + " is already used by \"" + p.conflict + "\"; not binding it")
+      Quickshell.execDetached(["notify-send", "-a", "Command Bar", "Command Bar hotkey not set",
+        hotkey + " is already used by “" + p.conflict + "”. Pick another \"hotkey\" in ~/.config/omarchy/extensions/commandbar.json."])
+    }
+    if (root.hotkeyQueued) { root.hotkeyQueued = false; root.ensureHotkey() }
+  }
+
+  Process {
+    id: bindsProc
+    command: ["hyprctl", "binds", "-j"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.reconcileHotkey(String(text || ""))
+    }
+  }
+
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      if (event && String(event.name) === "configreloaded") root.ensureHotkey()
+    }
+  }
+
+  // Unloading (plugin disabled, removed or reloaded) takes the binding with it.
+  // A reloaded plugin binds again after the startup delay below.
+  Component.onDestruction: {
+    var combo = Hotkey.parseCombo(root.boundHotkey)
+    if (combo) Quickshell.execDetached(["hyprctl", "eval",
+      "hl.unbind(" + Hotkey.luaString(Hotkey.comboString(combo.mask, combo.key)) + ")"])
+  }
+
+  // Both config files report in before the first bind, so a user's own
+  // "hotkey" is used from the start. The short delay lets a previous
+  // instance's unbind land first when the plugin is reloaded.
   property int configLoads: 0
   function configLoaded() {
     root.configLoads++
-    if (root.configLoads >= 2 && !root.configsLoaded) { root.configsLoaded = true; root.applyHotkey() }
+    if (root.configLoads >= 2 && !root.configsLoaded) { root.configsLoaded = true; hotkeyStartTimer.start() }
+  }
+
+  Timer {
+    id: hotkeyStartTimer
+    interval: 600
+    onTriggered: root.ensureHotkey()
   }
 
   // ---------------------------------------------------------------- config

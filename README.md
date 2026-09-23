@@ -33,15 +33,7 @@ The bar remembers your last query. When you reopen it, the text is selected, so 
 omarchy plugin add https://github.com/Saikomantisu/omarchy-commandbar --enable
 ```
 
-Add these lines to `~/.config/hypr/bindings.lua` to set up the hotkey:
-
-```lua
-local commandbar = os.getenv("HOME") .. "/.config/omarchy/plugins/io.github.saikomantisu.commandbar/hypr/commandbar.lua"
-local commandbar_file = io.open(commandbar)
-if commandbar_file then commandbar_file:close(); dofile(commandbar) end
-```
-
-The hotkey is Super + Period. You can change it with `"hotkey"` in the config.
+Press Super + Period to open it. You can change the key with `"hotkey"` in the config. If another action already uses the key, the bar leaves it alone and shows a notification.
 
 To open the bar with text already filled in, pass a query. For example, to open emoji search directly:
 
@@ -58,14 +50,15 @@ All of these come with Omarchy:
 - `xdg-open`: web keyword commands
 - `ps` and `kill` (from `procps-ng`): the process list
 - `date` and `timedatectl`: time zones
-- `hyprctl`: applying a new hotkey
+- `hyprctl`: setting the hotkey
+- `notify-send`: warning when the hotkey is already taken
 - `omarchy-menu-emoji-insert` and Omarchy's `emojis.json`: emoji
 
 ### Network, files and processes
 
 - The only network request is to `https://open.er-api.com/v6/latest/USD`, made when you convert currency and the saved rates are out of date. The rates update once a day. What you type is not sent anywhere, except the text you search with a web keyword like `g`.
 - It writes only to `~/.cache/omarchy-commandbar/`: the saved rates and your last query. It does not change your Hyprland or Omarchy config files.
-- When you change `"hotkey"`, it runs `hyprctl reload config-only`.
+- It sets its hotkey in the running Hyprland with `hyprctl eval`, and sets it again after Hyprland reloads its config. The hotkey is removed when the plugin is disabled or removed.
 - It lists only your own processes, and quits one only when you press Enter on it.
 
 ## Remove
@@ -75,7 +68,7 @@ omarchy plugin remove io.github.saikomantisu.commandbar
 rm -rf ~/.cache/omarchy-commandbar ~/.config/omarchy/extensions/commandbar.json
 ```
 
-Then delete the three hotkey lines from `~/.config/hypr/bindings.lua`. If you leave them, they do nothing once the plugin is removed.
+The hotkey is removed with the plugin.
 
 ## Configure
 

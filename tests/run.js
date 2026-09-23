@@ -86,6 +86,23 @@ expect("date", "Date Calculator"); expect("help", "Show All Commands"); expect("
   const ok = yes.every(x => asked.includes(x)) && no.every(x => !asked.includes(x))
   console.log((ok ? "ok  " : "FAIL") + "  rates requested only for currency queries → " + asked.join(" | ")); if (!ok) fails++ }
 
+// Hotkey: which Lua gets sent to `hyprctl eval`.
+{ const H = load(P + "lib/Hotkey.js"), cmd = "omarchy-shell shell toggle io.github.saikomantisu.commandbar"
+  const other = { modmask: 64, key: "K", description: "Keybindings", dispatcher: "__lua" }
+  const mine = { modmask: 64, key: "PERIOD", description: "Command bar", dispatcher: "__lua" }
+  const j = a => JSON.stringify(a)
+  const checks = [
+    ["parse", JSON.stringify(H.parseCombo("super + alt + c")) === '{"mask":72,"key":"C"}' && H.parseCombo("") === null && H.parseCombo("SUPER +") !== null && H.parseCombo("C + SUPER") === null],
+    ["binds when free", (r => r.bound && r.lua.length === 2 && r.lua[0] === 'hl.bind("SUPER + PERIOD", hl.dsp.exec_cmd("' + cmd + '"), { description = "Command bar" })')(H.plan(j([other]), "SUPER + PERIOD", cmd))],
+    ["already bound → nothing", (r => r.bound && r.lua.length === 0)(H.plan(j([other, mine]), "SUPER + PERIOD", cmd))],
+    ["key changed → unbind old, bind new", (r => r.bound && r.lua[0] === 'hl.unbind("SUPER + PERIOD")' && /^hl\.bind\("SUPER \+ ALT \+ C"/.test(r.lua[1]))(H.plan(j([mine]), "SUPER + ALT + C", cmd))],
+    ["taken by another → no bind, conflict", (r => !r.bound && r.conflict === "Keybindings" && r.lua.length === 0)(H.plan(j([other]), "SUPER + K", cmd))],
+    ["hotkey \"\" → unbind ours only", (r => !r.bound && r.lua.join() === 'hl.unbind("SUPER + PERIOD")')(H.plan(j([other, mine]), "", cmd))],
+    ["lua strings escaped", H.luaString('a"b\\c') === '"a\\"b\\\\c"'],
+    ["bad json → still binds", H.plan("not json", "SUPER + PERIOD", cmd).bound]
+  ]
+  for (const [name, ok] of checks) { console.log((ok ? "ok  " : "FAIL") + "  hotkey: " + name); if (!ok) fails++ } }
+
 const helpRows = q("?")
 const titles = helpRows.map(r => r.title)
 const helpOk = titles.join("|") === "Calculator|Currency|Time zones|Dates|Emoji|Kill process|g …|yt …|gh …|wiki …|lock"
