@@ -11,12 +11,16 @@ var SYMBOLS = { "$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY", "₹": "INR"
 var NAMES = {
   dollar: "USD", dollars: "USD", bucks: "USD", euro: "EUR", euros: "EUR",
   pound: "GBP", pounds: "GBP", quid: "GBP", yen: "JPY", yuan: "CNY", rmb: "CNY",
-  rs: "LKR", lkr: "LKR", rupee: "LKR", rupees: "LKR", dirham: "AED", dirhams: "AED",
+  rs: "RUPEE", rupee: "RUPEE", rupees: "RUPEE", dirham: "AED", dirhams: "AED",
   ringgit: "MYR", baht: "THB", won: "KRW", franc: "CHF", francs: "CHF"
 }
 
 // Used before the first rates download so the parser still recognises codes.
 var COMMON = ["USD", "EUR", "GBP", "JPY", "CNY", "INR", "LKR", "AUD", "CAD", "CHF", "SGD", "AED", "SAR", "MYR", "THB", "KRW", "NZD", "HKD", "SEK", "NOK", "DKK", "PKR", "BDT", "NPR", "MVR", "QAR", "KWD", "OMR", "BHD"]
+
+// "rupee"/"rs" mean your home currency when it's a rupee, else INR.
+var RUPEES = ["INR", "LKR", "PKR", "NPR", "MUR", "SCR"]
+var homeCurrency = "USD"
 
 var TARGET_SEP = /\s+(?:to|in|into|as|->|=>|=)\s*$/
 
@@ -24,6 +28,7 @@ function knownCode(word, rates) {
   if (!word) return null
   var w = word.toLowerCase()
   if (SYMBOLS[word]) return SYMBOLS[word]
+  if (NAMES[w] === "RUPEE") return RUPEES.indexOf(homeCurrency) !== -1 ? homeCurrency : "INR"
   if (NAMES[w]) return NAMES[w]
   var up = word.toUpperCase()
   if (!/^[A-Z]{3}$/.test(up)) return null
@@ -96,14 +101,16 @@ var provider = {
   icon: "󰁰",
   commands: function(ctx) {
     var home = String((ctx.settings && ctx.settings.home) || "USD").toLowerCase()
-    return [{ title: "Convert Currency", keywords: "currency exchange rate rates money forex fx", text: "Live exchange rates, cached offline", complete: "100 usd to " + home, select: true }]
+    var example = home === "usd" ? "100 eur to usd" : "100 usd to " + home
+    return [{ title: "Convert Currency", keywords: "currency exchange rate rates money forex fx", text: "Live exchange rates, cached offline", complete: example, select: true }]
   },
   help: [
-    { example: "100 usd to lkr", text: "Convert between currencies (also “in”, $50, €20)" },
+    { example: "100 usd to eur", text: "Convert between currencies (also “in”, $50, €20)" },
     { example: "50 eur", text: "Amount in your home and favorite currencies" }
   ],
   match: function(query, ctx) {
     var settings = ctx.settings || {}
+    homeCurrency = String(settings.home || "USD").toUpperCase()
     var data = ctx.rates
     var rates = data && data.rates
     var q = parse(query, rates)
@@ -116,8 +123,7 @@ var provider = {
     var targets = []
     if (q.to) targets.push(q.to)
     else {
-      var home = String(settings.home || "USD").toUpperCase()
-      if (q.from !== home) targets.push(home)
+      if (q.from !== homeCurrency) targets.push(homeCurrency)
       var favs = settings.favorites || []
       for (var i = 0; i < favs.length; i++) {
         var f = String(favs[i]).toUpperCase()

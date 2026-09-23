@@ -2,7 +2,9 @@
 const load = require("./loader")
 const P = require("path").join(__dirname, "..") + "/"
 const Engine = load(P + "lib/Engine.js")
-const config = Engine.parseJsonc(require("fs").readFileSync(P + "config.default.json", "utf8"))
+const defaults = Engine.parseJsonc(require("fs").readFileSync(P + "config.default.json", "utf8"))
+// Most cases run as a Sri Lanka user; the neutral defaults are checked separately below.
+const config = Engine.deepMerge(defaults, { currency: { home: "LKR", favorites: ["USD", "EUR", "INR"] }, time: { home: "Asia/Colombo" } })
 const rates = { rates: { USD: 1, LKR: 300.5, EUR: 0.9, INR: 83.2, GBP: 0.78, JPY: 150 }, updated: 1790000000, stale: false }
 const zones = { "Asia/Colombo": { offset: 330, abbr: "+0530" }, "UTC": { offset: 0, abbr: "UTC" }, "America/New_York": { offset: -240, abbr: "EDT" }, "Europe/London": { offset: 60, abbr: "BST" }, "America/Los_Angeles": { offset: -420, abbr: "PDT" }, "Asia/Tokyo": { offset: 540, abbr: "JST" } }
 const now = () => new Date(2026, 8, 23, 14, 0)   // 23 Sep 2026 14:00 local
@@ -64,8 +66,20 @@ expect("date", "Date Calculator"); expect("help", "Show All Commands"); expect("
 { const ok = q("2+2")[0].title === "4" && q("2+2").length === 1
   console.log((ok ? "ok  " : "FAIL") + "  maths queries don't pull in commands"); if (!ok) fails++ }
 
+// Shipped defaults are neutral: USD home currency, system time zone.
+{ const svc = { rates, zones, now, localZone: "Europe/London", emojis, processes }
+  const eur = Engine.run("50 eur", defaults, svc).map(r => r.title)
+  const t = Engine.run("time", defaults, svc)[0].title
+  const cmd = Engine.run("curr", defaults, svc)[0].complete
+  const ok = /USD$/.test(eur[0]) && /GBP$/.test(eur[1]) && /London/.test(t) && cmd === "100 eur to usd" && !JSON.stringify(defaults).includes("LKR")
+  console.log((ok ? "ok  " : "FAIL") + "  neutral defaults → " + eur.join(", ") + " | " + t + " | " + cmd); if (!ok) fails++ }
+{ const inr = Engine.run("100 rupees", defaults, { rates })[0].title
+  const lkr = q("100 rupees")[0].subtitle, rs = q("rs 500 to usd")[0].subtitle
+  const ok = /INR → USD/.test(Engine.run("100 rupees", defaults, { rates })[0].subtitle) && /^100 LKR/.test(lkr) && /^500 LKR → USD/.test(rs)
+  console.log((ok ? "ok  " : "FAIL") + "  rupee follows home currency → " + inr + " | " + lkr + " | " + rs); if (!ok) fails++ }
+
 const helpRows = q("?")
-const helpOk = helpRows.length === 14 && helpRows[0].title === "12*8 + 15%" && helpRows[9].title === "g …" && helpRows[9].complete === "g " && helpRows.some(r => r.complete === "100 usd to lkr") && helpRows.every(r => !r.copy && !r.run)
+const helpOk = helpRows.length === 14 && helpRows[0].title === "12*8 + 15%" && helpRows[9].title === "g …" && helpRows[9].complete === "g " && helpRows.some(r => r.complete === "100 usd to eur") && helpRows.every(r => !r.copy && !r.run)
 console.log((helpOk ? "ok  " : "FAIL") + "  \"?\" help → " + helpRows.length + " rows: " + helpRows.map(r => r.title).join(" | ")); if (!helpOk) fails++
 expect(" ? ", "12*8 + 15%"); expect("?x", null)
 const r = q("g foo & bar")[0].run; console.log("      url:", r.target)

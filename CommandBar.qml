@@ -36,6 +36,7 @@ Item {
 
   property var zones: ({})          // { "Asia/Tokyo": { offset: 540, abbr: "JST" } }
   property real zonesFetchedAt: 0
+  property string localZone: ""     // the system's IANA zone, e.g. "Europe/Berlin"
 
   property var emojis: []           // Omarchy's emojis.json: [{ e, k }]
   property var processes: null      // [{ pid, rss, cpu, name, args }], fetched on demand
@@ -62,7 +63,15 @@ Item {
 
   // ---------------------------------------------------------------- lifecycle
 
+  // payloadJson may carry a starting query, so a keybind or script can open
+  // the bar in a mode: '{"query": ":"}' for emoji, '{"query": "kill "}'.
   function open(payloadJson) {
+    var payload = {}
+    try { payload = JSON.parse(payloadJson || "{}") || {} } catch (e) {}
+    if (typeof payload.query === "string") {
+      input.text = payload.query
+      input.cursorPosition = payload.query.length
+    }
     root.opened = true
     root.selectedIndex = 0
     root.refreshRates()
@@ -70,7 +79,8 @@ Item {
     root.recompute()   // the kept query may be time-sensitive ("time", "3pm to tokyo")
     // Like Spotlight: the last query comes back selected, so typing replaces it
     // and an arrow key keeps it.
-    Qt.callLater(function() { input.forceActiveFocus(); input.selectAll() })
+    var given = typeof payload.query === "string"
+    Qt.callLater(function() { input.forceActiveFocus(); if (!given) input.selectAll() })
   }
 
   function close() {
@@ -97,6 +107,7 @@ Item {
       rates: root.rates,
       ratesStatus: root.ratesStatus,
       zones: root.zones,
+      localZone: root.localZone,
       emojis: root.emojis,
       processes: root.processes,
       requestProcesses: root.requestProcesses
@@ -301,7 +312,13 @@ Item {
     if (Date.now() - root.zonesFetchedAt < 60 * 60 * 1000) return
     var t = root.config.time || {}
     var extra = (t.zones || []).concat(t.home ? [t.home] : [])
-    zonesProc.command = ["bash", "-c", "for z in \"$@\"; do printf '%s ' \"$z\"; TZ=\"$z\" date +'%z %Z'; done", "_"]
+    // First line reports the system zone ("@local Europe/Berlin"), then one
+    // "zone +hhmm ABBR" line per zone, the system zone included.
+    zonesProc.command = ["bash", "-c",
+      "lz=$(timedatectl show -p Timezone --value 2>/dev/null); "
+      + "[ -n \"$lz\" ] || lz=$(readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||'); "
+      + "echo \"@local $lz\"; "
+      + "for z in \"$@\" $lz; do printf '%s ' \"$z\"; TZ=\"$z\" date +'%z %Z'; done", "_"]
       .concat(Tz.allZones(extra))
     zonesProc.running = true
   }
@@ -314,6 +331,8 @@ Item {
         var next = {}
         var lines = String(text || "").split("\n")
         for (var i = 0; i < lines.length; i++) {
+          var local = lines[i].match(/^@local (\S+)$/)
+          if (local) { root.localZone = local[1]; continue }
           var m = lines[i].match(/^(\S+) ([+-])(\d\d)(\d\d) (\S+)$/)
           if (!m) continue
           var minutes = parseInt(m[3], 10) * 60 + parseInt(m[4], 10)

@@ -33,8 +33,9 @@ function resolveZone(name, ctx) {
   return null
 }
 
+// Your zone: "home" in the config, else the system's own time zone.
 function homeZone(ctx) {
-  return (ctx.settings && ctx.settings.home) || "UTC"
+  return (ctx.settings && ctx.settings.home) || ctx.localZone || "UTC"
 }
 
 function zoneLabel(zone) {
