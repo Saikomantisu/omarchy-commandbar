@@ -10,6 +10,8 @@ A Spotlight/Raycast-style command bar for the Omarchy shell. Press a hotkey, typ
 | `days until dec 25`, `today + 45 days`, `next friday`, `2026-01-01 to 2026-09-23` | Date maths |
 | `g …`, `yt …`, `gh …`, `wiki …`, `lock` | Keyword commands you define in config |
 
+Type **`?`** to list everything the bar can do, including your own keyword commands. Enter on a row puts its example into the bar.
+
 Keys: **↑/↓** (or Ctrl+N/P) move the selection, **Enter** copies/opens/runs the selected row, **Tab** completes a keyword, **Esc** clears the text and a second **Esc** closes the bar.
 
 The bar remembers your last query, even across shell restarts. It comes back selected when you reopen, so typing replaces it and an arrow key keeps it. Close with Esc Esc to start fresh next time.
@@ -79,7 +81,7 @@ var provider = {
 }
 ```
 
-Import it and add it to the list in [`providers/index.js`](providers/index.js), then add its id to `"providers"` in the config. Rows from all providers are merged and sorted by `score`. Run `node tests/run.js` to check providers without the shell.
+Give it a `help` list (`[{ example, text }]`, or a function of `ctx` returning one) so it shows up under `?`. Import it and add it to the list in [`providers/index.js`](providers/index.js), then add its id to `"providers"` in the config. Rows from all providers are merged and sorted by `score`. Run `node tests/run.js` to check providers without the shell.
 
 ## License
 

@@ -131,7 +131,7 @@ Item {
 
   function actionLabel(row) {
     if (row.run) return row.run.kind === "open" ? "↵ open" : "↵ run"
-    if (row.complete && !row.copy) return "⇥ complete"
+    if (row.complete && !row.copy) return "↵ try"
     return row.copy ? "↵ copy" : ""
   }
 
@@ -365,7 +365,7 @@ Item {
               anchors.fill: parent
               verticalAlignment: Text.AlignVCenter
               visible: !input.text
-              text: "Calculate, convert, or type a keyword…"
+              text: "Calculate, convert, or type ? for help…"
               color: root.foreground
               opacity: 0.45
               font: input.font

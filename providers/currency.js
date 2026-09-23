@@ -94,6 +94,10 @@ var provider = {
   id: "currency",
   name: "Currency",
   icon: "󰁰",
+  help: [
+    { example: "100 usd to lkr", text: "Convert between currencies (also “in”, $50, €20)" },
+    { example: "50 eur", text: "Amount in your home and favorite currencies" }
+  ],
   match: function(query, ctx) {
     var settings = ctx.settings || {}
     var data = ctx.rates

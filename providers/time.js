@@ -303,6 +303,11 @@ var provider = {
   id: "time",
   name: "Time",
   icon: "󰥔",
+  help: [
+    { example: "time in tokyo", text: "Current time anywhere; “time” alone for your zones" },
+    { example: "3pm to new york", text: "Convert a time between zones (e.g. 3pm lkt to pst)" },
+    { example: "days until dec 25", text: "Date maths: today + 45 days, next friday, date to date" }
+  ],
   match: function(query, ctx) {
     var q = query.trim().toLowerCase().replace(/\s+/g, " ")
     var zoneRows = matchZones(q, ctx)

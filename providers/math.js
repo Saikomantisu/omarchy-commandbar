@@ -225,6 +225,10 @@ var provider = {
   id: "math",
   name: "Calculator",
   icon: "󰃬",
+  help: [
+    { example: "12*8 + 15%", text: "Arithmetic, percentages, powers (^), mod, n!" },
+    { example: "sqrt(2) * pi", text: "Functions: sqrt log ln sin cos tan abs round min max…" }
+  ],
   match: function(query, ctx) {
     var text = query.replace(/=\s*$/, "")
     var r = evaluate(text)
