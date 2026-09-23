@@ -56,7 +56,7 @@ Item {
   readonly property int cornerRadius: Style.cornerRadius
   property string fontFamily: Style.font.menuFamily
   property int contentMargin: Style.spacing.panelPadding
-  property int inputHeight: Math.max(Style.space(40), Style.font.display + Style.spacing.controlPaddingY * 2)
+  property int inputHeight: Math.max(Style.space(34), Style.font.heading + Style.spacing.controlPaddingY * 2)
   property int rowHeight: Math.max(Style.space(46), Style.font.heading + Style.font.bodySmall + Style.spacing.md * 2)
   readonly property int maxRows: 7
   property int cardWidth: Math.min(Style.space(640), panel.width - Style.gapsOut * 2)
@@ -326,7 +326,7 @@ Item {
             text: "󰍉"
             color: root.selectedText
             font.family: root.fontFamily
-            font.pixelSize: Style.font.display
+            font.pixelSize: Style.font.iconLarge
           }
 
           TextInput {
@@ -339,7 +339,7 @@ Item {
             selectionColor: root.selectedBackground
             selectedTextColor: root.selectedText
             font.family: root.fontFamily
-            font.pixelSize: Style.font.display
+            font.pixelSize: Style.font.heading
             clip: true
             focus: true
             onTextChanged: {
