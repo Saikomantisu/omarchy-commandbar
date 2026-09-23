@@ -78,6 +78,14 @@ expect("date", "Date Calculator"); expect("help", "Show All Commands"); expect("
   const ok = /INR → USD/.test(Engine.run("100 rupees", defaults, { rates })[0].subtitle) && /^100 LKR/.test(lkr) && /^500 LKR → USD/.test(rs)
   console.log((ok ? "ok  " : "FAIL") + "  rupee follows home currency → " + inr + " | " + lkr + " | " + rs); if (!ok) fails++ }
 
+// The exchange-rate API is requested only by real currency queries.
+{ const asked = []
+  const svc = query => ({ rates, zones, now, emojis, processes, requestProcesses: () => {}, requestRates: () => asked.push(query) })
+  const yes = ["100 usd to eur", "$50", "50 eur", "usd lkr", "12*50 usd"], no = ["2+2", "time", "hello", "?", ":fire", "curr", "kill", "g usd", "days until dec 25", ""]
+  for (const x of yes.concat(no)) Engine.run(x, config, svc(x))
+  const ok = yes.every(x => asked.includes(x)) && no.every(x => !asked.includes(x))
+  console.log((ok ? "ok  " : "FAIL") + "  rates requested only for currency queries → " + asked.join(" | ")); if (!ok) fails++ }
+
 const helpRows = q("?")
 const titles = helpRows.map(r => r.title)
 const helpOk = titles.join("|") === "Calculator|Currency|Time zones|Dates|Emoji|Kill process|g …|yt …|gh …|wiki …|lock"

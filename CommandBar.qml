@@ -84,7 +84,6 @@ Item {
     }
     root.opened = true
     root.selectedIndex = 0
-    root.refreshRates()
     root.refreshZones()
     root.recompute()   // the kept query may be time-sensitive ("time", "3pm to tokyo")
     // Like Spotlight: the last query comes back selected, so typing replaces it
@@ -120,7 +119,8 @@ Item {
       localZone: root.localZone,
       emojis: root.emojis,
       processes: root.processes,
-      requestProcesses: root.requestProcesses
+      requestProcesses: root.requestProcesses,
+      requestRates: root.refreshRates
     })
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
     if (root.rows.length > 0) list.positionViewAtIndex(root.selectedIndex, ListView.Contain)
@@ -229,9 +229,11 @@ Item {
 
   // ---------------------------------------------------------------- rates
 
-  // open.er-api.com publishes daily and says when the next update is, so the
-  // cache is refetched only once that time has passed. Failed attempts back
-  // off for ten minutes; the last good file keeps working offline.
+  // Called by the currency provider (ctx.requestRates) only while a currency
+  // query is on screen, so someone who never converts money never contacts
+  // the API. open.er-api.com says when its next daily update is, and the
+  // cache is refetched only after that. Failed attempts back off for ten
+  // minutes; the last good file keeps working offline.
   function refreshRates() {
     if (ratesProc.running) return
     var now = Date.now()
@@ -289,7 +291,6 @@ Item {
     watchChanges: true
     printErrors: false
     onLoaded: root.loadRates(text())
-    onLoadFailed: root.refreshRates()
     onFileChanged: reload()
   }
 
@@ -306,13 +307,6 @@ Item {
         ratesFile.reload()
       }
     }
-  }
-
-  Timer {
-    interval: 60 * 60 * 1000
-    running: true
-    repeat: true
-    onTriggered: root.refreshRates()
   }
 
   // ---------------------------------------------------------------- zones

@@ -114,6 +114,9 @@ var provider = {
     var rates = data && data.rates
     var q = parse(query, rates)
     if (!q) return []
+    // The only place the exchange-rate API is triggered: a query that is
+    // actually a conversion. CommandBar.qml skips it while the cache is fresh.
+    if (ctx.requestRates) ctx.requestRates()
 
     if (!rates) {
       return [{ title: "Fetching exchange rates…", subtitle: ctx.ratesStatus || "No cached rates yet", score: 40, copy: "" }]
