@@ -87,8 +87,7 @@ Put your settings in `~/.config/omarchy/extensions/commandbar.json`. They overri
   "hotkey": "SUPER + PERIOD",
   // Features to turn on. When results score equally, earlier ones come first.
   "providers": ["commands", "math", "currency", "time", "emoji", "processes"],
-  // Default home currency is USD. "rupee" and "rs" mean your home currency
-  // if it is a rupee, otherwise INR.
+  // Default home currency is USD.
   "currency": { "home": "EUR", "favorites": ["USD", "GBP"] },
   // Default home zone is your system time zone.
   "time": { "home": "Europe/Berlin", "zones": ["UTC", "America/New_York"], "clock24": true },
