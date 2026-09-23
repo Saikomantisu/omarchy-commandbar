@@ -7,7 +7,15 @@ const rates = { rates: { USD: 1, LKR: 300.5, EUR: 0.9, INR: 83.2, GBP: 0.78, JPY
 const zones = { "Asia/Colombo": { offset: 330, abbr: "+0530" }, "UTC": { offset: 0, abbr: "UTC" }, "America/New_York": { offset: -240, abbr: "EDT" }, "Europe/London": { offset: 60, abbr: "BST" }, "America/Los_Angeles": { offset: -420, abbr: "PDT" }, "Asia/Tokyo": { offset: 540, abbr: "JST" } }
 const now = () => new Date(2026, 8, 23, 14, 0)   // 23 Sep 2026 14:00 local
 let fails = 0
-function q(query) { return Engine.run(query, config, { rates, zones, now, ratesStatus: "" }) }
+const emojis = JSON.parse(require("fs").readFileSync("/usr/share/omarchy/shell/plugins/emojis/emojis.json", "utf8"))
+const processes = [
+  { pid: 101, rss: 400000, cpu: 12.5, name: "chrome", args: "/opt/google/chrome/chrome" },
+  { pid: 102, rss: 200000, cpu: 3.0, name: "chrome", args: "/opt/google/chrome/chrome --type=renderer" },
+  { pid: 103, rss: 50000, cpu: 0.1, name: "Web Content", args: "/usr/lib/firefox/firefox -contentproc" },
+  { pid: 104, rss: 90000, cpu: 20.0, name: "node", args: "node server.js" }
+]
+let requested = 0
+function q(query) { return Engine.run(query, config, { rates, zones, now, ratesStatus: "", emojis, processes, requestProcesses: () => requested++ }) }
 function expect(query, want) {
   const rows = q(query)
   const top = rows[0] ? rows[0].title : "(none)"
@@ -26,8 +34,26 @@ expect("9am to tokyo", "12:30 Tokyo"); expect("11pm to tokyo", "02:30 Tokyo (+1 
 expect("days until dec 25", /^93 days/); expect("today + 45 days", "Sat, 7 Nov 2026"); expect("2026-01-01 to 2026-09-23", /^265 days/); expect("next friday", "Fri, 25 Sep 2026")
 expect("days since jan 1", /^265 days/); expect("in 2 weeks", "Wed, 7 Oct 2026"); expect("until christmas", /^93 days/); expect("dec 25", "Fri, 25 Dec 2026")
 expect("g foo bar", "Search Google: foo bar"); expect("g", "Search Google…"); expect("lock", "Lock screen"); expect("lo", "Lock screen")
+// emoji
+expect(":fire", /fire/); expect("emoji thumbs up", /thumbs up/); expect(":", "Type to search emoji"); expect(":zzqx", null)
+{ const r = q(":fire")[0]; const ok = r.icon === "🔥" && r.copy === "🔥" && r.run.target === "omarchy-menu-emoji-insert '🔥'"
+  console.log((ok ? "ok  " : "FAIL") + "  :fire row → " + r.icon + " " + r.run.target); if (!ok) fails++ }
+{ const r = Engine.run(":fire", { providers: ["emoji"], emoji: { onEnter: "copy" } }, { emojis })[0]; const ok = !r.run && r.copy === "🔥"
+  console.log((ok ? "ok  " : "FAIL") + "  emoji onEnter=copy → no run, copies " + r.copy); if (!ok) fails++ }
+// processes
+expect("kill", "Quit node"); expect("kill chrome", "Quit all 2 “chrome” processes"); expect("kill web", "Quit Web Content"); expect("kill zzz", /^No process/)
+expect("kill -9 node", "Force quit node"); expect("killer", null)
+{ const rows = q("kill chrome"); const ok = rows[0].run.target === "kill -TERM 101 102" && rows[1].run.target === "kill -TERM 101" && q("kill -9 node")[0].run.target === "kill -KILL 104" && requested > 0
+  console.log((ok ? "ok  " : "FAIL") + "  kill targets → " + rows[0].run.target + " | " + q("kill -9 node")[0].run.target + " | requested " + requested); if (!ok) fails++ }
+{ const r = Engine.run("kill x", { providers: ["processes"] }, { requestProcesses: () => {} })[0]; const ok = r.title === "Loading processes…" && !r.run
+  console.log((ok ? "ok  " : "FAIL") + "  kill before snapshot → " + r.title); if (!ok) fails++ }
+// Every kill target must be exactly "kill -SIG <digits…>" — nothing from args/names reaches the shell.
+{ const all = ["kill", "kill chrome", "kill web", "kill -9 chrome"].flatMap(x => q(x)).filter(r => r.run)
+  const ok = all.every(r => /^kill -(TERM|KILL)( \d+)+$/.test(r.run.target))
+  console.log((ok ? "ok  " : "FAIL") + "  " + all.length + " kill targets are pid-only"); if (!ok) fails++ }
+
 const helpRows = q("?")
-const helpOk = helpRows.length === 12 && helpRows[0].title === "12*8 + 15%" && helpRows[7].title === "g …" && helpRows[7].complete === "g " && helpRows.some(r => r.complete === "100 usd to lkr") && helpRows.every(r => !r.copy && !r.run)
+const helpOk = helpRows.length === 14 && helpRows[0].title === "12*8 + 15%" && helpRows[9].title === "g …" && helpRows[9].complete === "g " && helpRows.some(r => r.complete === "100 usd to lkr") && helpRows.every(r => !r.copy && !r.run)
 console.log((helpOk ? "ok  " : "FAIL") + "  \"?\" help → " + helpRows.length + " rows: " + helpRows.map(r => r.title).join(" | ")); if (!helpOk) fails++
 expect(" ? ", "12*8 + 15%"); expect("?x", null)
 const r = q("g foo & bar")[0].run; console.log("      url:", r.target)

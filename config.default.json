@@ -1,7 +1,8 @@
 {
-  "providers": ["commands", "math", "currency", "time"],
+  "providers": ["commands", "math", "currency", "time", "emoji", "processes"],
   "math": { "precision": 10 },
   "currency": { "home": "LKR", "favorites": ["USD", "EUR", "INR"] },
+  "emoji": { "onEnter": "paste" },
   "time": { "home": "Asia/Colombo", "zones": ["UTC", "America/New_York", "Europe/London"], "clock24": true },
   "commands": [
     { "keyword": "g", "title": "Search Google", "open": "https://www.google.com/search?q={q}" },

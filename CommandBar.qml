@@ -37,6 +37,10 @@ Item {
   property var zones: ({})          // { "Asia/Tokyo": { offset: 540, abbr: "JST" } }
   property real zonesFetchedAt: 0
 
+  property var emojis: []           // Omarchy's emojis.json: [{ e, k }]
+  property var processes: null      // [{ pid, rss, cpu, name, args }], fetched on demand
+  property real processesFetchedAt: 0
+
   // Menu surface tokens, so themes that style the Omarchy menu style this too.
   property color background: Color.menu.background
   property color foreground: Color.menu.text
@@ -92,7 +96,10 @@ Item {
     root.results = Engine.run(input.text, root.config, {
       rates: root.rates,
       ratesStatus: root.ratesStatus,
-      zones: root.zones
+      zones: root.zones,
+      emojis: root.emojis,
+      processes: root.processes,
+      requestProcesses: root.requestProcesses
     })
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
     if (root.rows.length > 0) list.positionViewAtIndex(root.selectedIndex, ListView.Contain)
@@ -130,7 +137,7 @@ Item {
   }
 
   function actionLabel(row) {
-    if (row.run) return row.run.kind === "open" ? "↵ open" : "↵ run"
+    if (row.run) return "↵ " + (row.run.label || (row.run.kind === "open" ? "open" : "run"))
     if (row.complete && !row.copy) return "↵ try"
     return row.copy ? "↵ copy" : ""
   }
@@ -280,6 +287,54 @@ Item {
         }
         root.zones = next
         root.zonesFetchedAt = Date.now()
+        if (root.opened) root.recompute()
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- emoji
+
+  FileView {
+    path: Quickshell.env("OMARCHY_PATH") + "/shell/plugins/emojis/emojis.json"
+    printErrors: false
+    onLoaded: {
+      try {
+        var data = JSON.parse(text())
+        root.emojis = Array.isArray(data) ? data : []
+      } catch (e) {
+        console.warn("commandbar: bad emojis.json: " + e)
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- processes
+
+  // Snapshot of the user's own processes, taken only while a "kill" query is
+  // on screen and at most every 1.5 s. comm is padded to a fixed width so
+  // names with spaces ("Web Content") parse cleanly.
+  function requestProcesses() {
+    if (processProc.running) return
+    if (Date.now() - root.processesFetchedAt < 1500) return
+    processProc.running = true
+  }
+
+  Process {
+    id: processProc
+    command: ["ps", "-u", Quickshell.env("USER"), "--no-headers", "-o", "pid=,rss=,pcpu=,comm:40=,args="]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var out = []
+        var lines = String(text || "").split("\n")
+        for (var i = 0; i < lines.length; i++) {
+          var m = lines[i].match(/^\s*(\d+)\s+(\d+)\s+([\d.]+) (.{40}) (.*)$/)
+          if (!m) continue
+          var name = m[4].trim()
+          if (name === "ps") continue
+          out.push({ pid: parseInt(m[1], 10), rss: parseInt(m[2], 10), cpu: parseFloat(m[3]), name: name, args: m[5] })
+        }
+        root.processes = out
+        root.processesFetchedAt = Date.now()
         if (root.opened) root.recompute()
       }
     }

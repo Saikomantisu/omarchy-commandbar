@@ -9,6 +9,8 @@ A Spotlight/Raycast-style command bar for the Omarchy shell. Press a hotkey, typ
 | `time`, `time in tokyo`, `3pm lkt to pst`, `15:30 in london` | Time zones (DST-correct offsets from the system tz database) |
 | `days until dec 25`, `today + 45 days`, `next friday`, `2026-01-01 to 2026-09-23` | Date maths |
 | `g …`, `yt …`, `gh …`, `wiki …`, `lock` | Keyword commands you define in config |
+| `:fire`, `emoji thumbs up` | Emoji search. Enter types it into the app you were in (`"emoji": { "onEnter": "copy" }` to copy instead) |
+| `kill`, `kill chrome`, `kill -9 node` | Quit your own processes. Several processes with one name can be quit together |
 
 Type **`?`** to list everything the bar can do, including your own keyword commands. Enter on a row puts its example into the bar.
 
