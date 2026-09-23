@@ -1,28 +1,31 @@
 # Command Bar
 
-A Spotlight/Raycast-style command bar for the Omarchy shell. Press a hotkey, type, and the answer shows up as you type. **Enter** copies it or runs it.
+A Spotlight-style command bar for Omarchy. Press a hotkey and type. Results appear as you type, and Enter copies or runs the selected one.
 
-It focuses on quick answers (maths, money, time) and on being easy to extend: new keyword commands need only a line of JSON, and new features are a single JavaScript file.
+![Command Bar showing its help list](preview.png)
 
-![Command Bar listing its features after typing ?](preview.png)
+## What it does
 
-| Type | You get |
-|------|---------|
-| `12*8 + 15%`, `sqrt(2)`, `15% of 200`, `2pi`, `5!` | Calculator (a real parser, never `eval`) |
-| `100 usd to eur`, `$50`, `€20 in inr`, `50 gbp`, `usd jpy` | Currency conversion ([open.er-api.com](https://open.er-api.com), cached, works offline) |
-| `time`, `time in tokyo`, `3pm cet to pst`, `15:30 in london` | Time zones (DST-correct offsets from the system tz database) |
-| `days until dec 25`, `today + 45 days`, `next friday`, `2026-01-01 to 2026-09-23` | Date maths |
-| `g …`, `yt …`, `gh …`, `wiki …`, `lock` | Keyword commands you define in config |
-| `:fire`, `emoji thumbs up` | Emoji search. Enter types it into the app you were in (`"emoji": { "onEnter": "copy" }` to copy instead) |
-| `kill`, `kill chrome`, `kill -9 node` | Quit your own processes. Several processes with one name can be quit together |
+| Type | Result |
+|------|--------|
+| `12*8 + 15%`, `sqrt(2)`, `15% of 200`, `5!` | Calculator |
+| `100 usd to eur`, `$50`, `50 gbp`, `usd jpy` | Currency conversion, using rates from [open.er-api.com](https://open.er-api.com) |
+| `time`, `time in tokyo`, `3pm cet to pst` | Time zones |
+| `days until dec 25`, `today + 45 days`, `next friday` | Date calculations |
+| `:fire`, `emoji party` | Emoji search. Enter types the emoji into the app you were using |
+| `kill`, `kill chrome`, `kill -9 node` | Quit one of your processes, or all processes with that name |
+| `g …`, `yt …`, `gh …`, `wiki …`, `lock` | Keyword commands, which you can change in the config |
 
-Every feature is also a command you can find by typing its name, like Raycast: `emo` → *Search Emoji*, `curr` → *Convert Currency*, `kil` → *Kill Process*, `clock` → *World Clock*, `goo` → *Search Google*. Commands rank below real answers, so `2+2` still shows 4 first.
+Type part of a feature's name to find it: `emo` shows Search Emoji, `curr` shows Convert Currency. Type `?` to see everything.
 
-Type **`?`** to list everything the bar can do, including your own keyword commands. Enter on a row puts its example into the bar.
+Keys:
 
-Keys: **↑/↓** (or Ctrl+N/P) move the selection, **Enter** copies/opens/runs the selected row, **Tab** completes a keyword, **Esc** clears the text and a second **Esc** closes the bar.
+- Up/Down or Ctrl+N/P: move the selection
+- Enter: copy, open or run the selected row
+- Tab: complete a keyword
+- Esc: clear the text; press again to close
 
-The bar remembers your last query, even across shell restarts. It comes back selected when you reopen, so typing replaces it and an arrow key keeps it. Close with Esc Esc to start fresh next time.
+The bar remembers your last query. When you reopen it, the text is selected, so typing replaces it.
 
 ## Install
 
@@ -30,7 +33,7 @@ The bar remembers your last query, even across shell restarts. It comes back sel
 omarchy plugin add https://github.com/Saikomantisu/omarchy-commandbar --enable
 ```
 
-Then load its hotkey in `~/.config/hypr/bindings.lua`:
+Add these lines to `~/.config/hypr/bindings.lua` to set up the hotkey:
 
 ```lua
 local commandbar = os.getenv("HOME") .. "/.config/omarchy/plugins/io.github.saikomantisu.commandbar/hypr/commandbar.lua"
@@ -38,9 +41,9 @@ local commandbar_file = io.open(commandbar)
 if commandbar_file then commandbar_file:close(); dofile(commandbar) end
 ```
 
-The default hotkey is **Super + Period**. To change it, set `"hotkey"` in your config (below). It takes effect as soon as you save. `"hotkey": ""` leaves the bar unbound.
+The hotkey is Super + Period. You can change it with `"hotkey"` in the config.
 
-To open the bar with a starting query, for example a separate key straight into emoji search, pass it in the payload:
+To open the bar with text already filled in, pass a query. For example, to open emoji search directly:
 
 ```sh
 omarchy-shell shell toggle io.github.saikomantisu.commandbar '{"query": ":"}'
@@ -48,22 +51,22 @@ omarchy-shell shell toggle io.github.saikomantisu.commandbar '{"query": ":"}'
 
 ### Dependencies
 
-Everything it uses ships with Omarchy:
+All of these come with Omarchy:
 
-- `curl` for exchange rates
-- `wl-copy` (`wl-clipboard`) to copy results
-- `xdg-open` for web keyword commands
-- `ps` and `kill` (`procps-ng`) for the process list
-- `date` and `timedatectl` for time zone offsets
-- `hyprctl` to reload Hyprland when the hotkey changes
-- Omarchy's `omarchy-menu-emoji-insert` (uses `wtype`) and its `emojis.json` for emoji
+- `curl`: exchange rates
+- `wl-copy` (from `wl-clipboard`): copying results
+- `xdg-open`: web keyword commands
+- `ps` and `kill` (from `procps-ng`): the process list
+- `date` and `timedatectl`: time zones
+- `hyprctl`: applying a new hotkey
+- `omarchy-menu-emoji-insert` and Omarchy's `emojis.json`: emoji
 
-### What it touches
+### Network, files and processes
 
-- **Network:** only `https://open.er-api.com/v6/latest/USD`, at most once per rate update (daily) and only when a currency query needs it. Nothing you type is sent anywhere, except web keyword commands like `g …`, which you trigger with Enter.
-- **Files it writes:** `~/.cache/omarchy-commandbar/` (the rates cache and your last query). It never writes your Hyprland or Omarchy config. The only change there is the hotkey snippet you add yourself.
-- **Hyprland:** when you change `"hotkey"`, the bar runs `hyprctl reload config-only` so the new key works straight away.
-- **Processes:** it lists only your own processes, and only quits one when you press Enter on it.
+- The only network request is to `https://open.er-api.com/v6/latest/USD`, made when you convert currency and the saved rates are out of date. The rates update once a day. What you type is not sent anywhere, except the text you search with a web keyword like `g`.
+- It writes only to `~/.cache/omarchy-commandbar/`: the saved rates and your last query. It does not change your Hyprland or Omarchy config files.
+- When you change `"hotkey"`, it runs `hyprctl reload config-only`.
+- It lists only your own processes, and quits one only when you press Enter on it.
 
 ## Remove
 
@@ -72,39 +75,40 @@ omarchy plugin remove io.github.saikomantisu.commandbar
 rm -rf ~/.cache/omarchy-commandbar ~/.config/omarchy/extensions/commandbar.json
 ```
 
-Then delete the three hotkey lines from `~/.config/hypr/bindings.lua`. Until you do, they are harmless: they do nothing if the plugin isn't installed.
+Then delete the three hotkey lines from `~/.config/hypr/bindings.lua`. If you leave them, they do nothing once the plugin is removed.
 
 ## Configure
 
-Defaults live in [`config.default.json`](config.default.json). Put overrides in `~/.config/omarchy/extensions/commandbar.json` (JSONC: comments and trailing commas are fine). Changes apply live.
+Put your settings in `~/.config/omarchy/extensions/commandbar.json`. They override the defaults in [`config.default.json`](config.default.json), and changes apply when you save. You can use comments and trailing commas.
 
 ```jsonc
 {
-  // Any Hyprland key combo, e.g. "SUPER + ALT + C".
+  // A Hyprland key combination. "" means no hotkey.
   "hotkey": "SUPER + PERIOD",
-  // Which providers run, in tie-break order.
+  // Features to turn on. When results score equally, earlier ones come first.
   "providers": ["commands", "math", "currency", "time", "emoji", "processes"],
-  // Default home is USD; "rupee"/"rs" mean your home currency if it's a rupee.
+  // Default home currency is USD. "rupee" and "rs" mean your home currency
+  // if it is a rupee, otherwise INR.
   "currency": { "home": "EUR", "favorites": ["USD", "GBP"] },
-  // "home" defaults to your system time zone.
+  // Default home zone is your system time zone.
   "time": { "home": "Europe/Berlin", "zones": ["UTC", "America/New_York"], "clock24": true },
-  // "paste" types the emoji into the focused app; "copy" copies it.
+  // "paste" types the emoji into the app you were using; "copy" copies it.
   "emoji": { "onEnter": "paste" },
-  // Replaces the default list entirely.
+  // This list replaces the default keyword commands.
   "commands": [
     { "keyword": "g", "title": "Search Google", "open": "https://www.google.com/search?q={q}" },
     { "keyword": "ddg", "title": "DuckDuckGo", "open": "https://duckduckgo.com/?q={q}" },
-    { "keyword": "term", "title": "Terminal here", "run": "xdg-terminal-exec" },
+    { "keyword": "term", "title": "Terminal", "run": "xdg-terminal-exec" },
     { "keyword": "say", "title": "Notify", "run": "notify-send {q}" }
   ]
 }
 ```
 
-In `open` commands, `{q}` is URL-encoded. In `run` commands, it is shell-quoted, so typed text can never break out of the command.
+`{q}` is whatever you type after the keyword. In `open` commands it is URL-encoded. In `run` commands it is shell-quoted, so it can't change the command itself.
 
 ## Adding a feature
 
-Each feature is a provider in `providers/`:
+Each feature is a JavaScript file in `providers/`:
 
 ```js
 .pragma library
@@ -113,15 +117,22 @@ var provider = {
   id: "units",
   name: "Units",
   icon: "󰕒",
-  // Return [] when the query isn't yours.
+  // Found by name: typing "unit" shows this command.
+  commands: [{ title: "Convert Units", keywords: "unit convert", text: "e.g. 5 km to mi", complete: "5 km to mi", select: true }],
+  // Shown in the "?" list.
+  help: [{ title: "Units", examples: ["5 km to mi", "30c to f"] }],
+  // Return [] if the query isn't for this feature.
   match: function(query, ctx) {
-    // ctx.settings = config["units"]; also ctx.rates, ctx.zones, ctx.now(), ctx.format(n), ctx.plain(n)
-    return [{ title: "…", subtitle: "…", score: 80, copy: "…" /*, run: { kind: "open" | "run", target } */ }]
+    return [{ title: "3.11 mi", subtitle: "5 km → mi", score: 80, copy: "3.11" }]
   }
 }
 ```
 
-Give it a `commands` list (`[{ title, keywords, text, complete, select?, run? }]`) so it can be found by name, and a `help` list (`[{ example, text }]`, or a function of `ctx` returning one) so it shows up under `?`. Import it and add it to the list in [`providers/index.js`](providers/index.js), then add its id to `"providers"` in the config. Rows from all providers are merged and sorted by `score`. Run `node tests/run.js` to check providers without the shell.
+A result can include `run: { kind: "open" | "run", target }` to open or run something on Enter. `ctx.settings` is the provider's section of the config. `ctx` also has `rates`, `zones`, `localZone`, `emojis`, `processes`, `now()`, `format(n)` and `plain(n)`.
+
+To enable it, import it in [`providers/index.js`](providers/index.js), add it to the list there, and add its `id` to `"providers"` in the config.
+
+Test providers without the shell by running `node tests/run.js`.
 
 ## License
 
