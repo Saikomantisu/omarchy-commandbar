@@ -37,14 +37,6 @@ Item {
   property var zones: ({})          // { "Asia/Tokyo": { offset: 540, abbr: "JST" } }
   property real zonesFetchedAt: 0
 
-  readonly property var hints: [
-    { title: "12*8 + 15%", subtitle: "Calculator", icon: "󰃬" },
-    { title: "100 usd to lkr", subtitle: "Currency", icon: "󰁰" },
-    { title: "3pm to tokyo", subtitle: "Time zones", icon: "󰥔" },
-    { title: "days until dec 25", subtitle: "Date maths", icon: "󰃭" },
-    { title: "g ", subtitle: "Search Google · any keyword from your config", icon: "󰖟" }
-  ]
-
   // Menu surface tokens, so themes that style the Omarchy menu style this too.
   property color background: Color.menu.background
   property color foreground: Color.menu.text
@@ -61,8 +53,8 @@ Item {
   readonly property int maxRows: 7
   property int cardWidth: Math.min(Style.space(640), panel.width - Style.gapsOut * 2)
 
-  readonly property bool showingHints: input.text.trim() === ""
-  readonly property var rows: showingHints ? hints : results
+  // Nothing is listed until there's a query, so an empty bar is just the input.
+  readonly property var rows: results
 
   // ---------------------------------------------------------------- lifecycle
 
@@ -97,15 +89,11 @@ Item {
   // ---------------------------------------------------------------- queries
 
   function recompute() {
-    if (root.showingHints) {
-      root.results = []
-    } else {
-      root.results = Engine.run(input.text, root.config, {
-        rates: root.rates,
-        ratesStatus: root.ratesStatus,
-        zones: root.zones
-      })
-    }
+    root.results = Engine.run(input.text, root.config, {
+      rates: root.rates,
+      ratesStatus: root.ratesStatus,
+      zones: root.zones
+    })
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
     if (root.rows.length > 0) list.positionViewAtIndex(root.selectedIndex, ListView.Contain)
   }
@@ -118,7 +106,7 @@ Item {
   }
 
   function complete(row) {
-    var text = root.showingHints ? row.title : row.complete
+    var text = row.complete
     if (!text) return false
     input.text = text
     input.cursorPosition = text.length
@@ -129,7 +117,6 @@ Item {
   function activate(index) {
     var row = root.rows[index]
     if (!row) return
-    if (root.showingHints) { root.complete(row); return }
     if (row.run) {
       root.dismiss()
       if (row.run.kind === "open") Quickshell.execDetached(["xdg-open", row.run.target])
@@ -143,7 +130,6 @@ Item {
   }
 
   function actionLabel(row) {
-    if (root.showingHints) return "↵ try"
     if (row.run) return row.run.kind === "open" ? "↵ open" : "↵ run"
     if (row.complete && !row.copy) return "⇥ complete"
     return row.copy ? "↵ copy" : ""
@@ -462,10 +448,9 @@ Item {
                 textFormat: Text.PlainText
                 text: rowItem.modelData.title
                 color: rowItem.selected ? root.selectedText : root.foreground
-                opacity: root.showingHints ? 0.75 : 1
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.heading
-                font.bold: !root.showingHints && rowItem.index === 0
+                font.bold: rowItem.index === 0
                 elide: Text.ElideRight
               }
 
