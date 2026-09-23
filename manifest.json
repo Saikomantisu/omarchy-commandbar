@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.saikomantisu.commandbar",
+  "name": "Command Bar",
+  "version": "0.1.0",
+  "author": "Saikomantisu",
+  "license": "MIT",
+  "description": "Spotlight-style command bar: calculator, currency, time zones, dates and keyword commands",
+  "kinds": [
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "CommandBar.qml"
+  }
+}
