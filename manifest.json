@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.saikomantisu.commandbar",
   "name": "Command Bar",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "author": "Saikomantisu",
   "license": "MIT",
   "description": "Spotlight-style command bar: calculator, currency, time zones, date maths, emoji, kill process and your own keyword commands",
