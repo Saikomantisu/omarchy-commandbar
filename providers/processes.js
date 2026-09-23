@@ -17,6 +17,9 @@ var provider = {
   id: "processes",
   name: "Processes",
   icon: "󰅙",
+  commands: [
+    { title: "Kill Process", keywords: "kill quit process processes force end task manager", text: "Quit a running app or process", complete: "kill " }
+  ],
   help: [
     { example: "kill ", text: "Quit a running process (kill -9 … to force)" }
   ],
@@ -39,7 +42,7 @@ var provider = {
       var r = !needle ? 1 : name === needle ? 3 : name.indexOf(needle) === 0 ? 2 : (name + " " + p.args.toLowerCase()).indexOf(needle) !== -1 ? 1 : 0
       if (r > 0) hits.push({ p: p, r: r })
     }
-    if (hits.length === 0) return [{ title: "No process matches “" + needle + "”", subtitle: "Processes", score: 40, copy: "" }]
+    if (hits.length === 0) return [{ title: needle ? "No process matches “" + needle + "”" : "No processes found", subtitle: "Processes", score: 40, copy: "" }]
     hits.sort(function(a, b) { return b.r - a.r || b.p.cpu - a.p.cpu || b.p.rss - a.p.rss })
 
     var out = []

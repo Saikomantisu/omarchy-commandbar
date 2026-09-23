@@ -94,6 +94,10 @@ var provider = {
   id: "currency",
   name: "Currency",
   icon: "󰁰",
+  commands: function(ctx) {
+    var home = String((ctx.settings && ctx.settings.home) || "USD").toLowerCase()
+    return [{ title: "Convert Currency", keywords: "currency exchange rate rates money forex fx", text: "Live exchange rates, cached offline", complete: "100 usd to " + home, select: true }]
+  },
   help: [
     { example: "100 usd to lkr", text: "Convert between currencies (also “in”, $50, €20)" },
     { example: "50 eur", text: "Amount in your home and favorite currencies" }

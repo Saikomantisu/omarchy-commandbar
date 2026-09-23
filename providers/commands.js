@@ -39,6 +39,25 @@ var provider = {
     }
     return out
   },
+  // Searchable by keyword and title: "goo" finds Search Google, "lo" finds Lock screen.
+  commands: function(ctx) {
+    var list = Array.isArray(ctx.settings) ? ctx.settings : []
+    var out = []
+    for (var i = 0; i < list.length; i++) {
+      var cmd = list[i]
+      if (!cmd || !cmd.keyword || !(cmd.open || cmd.run)) continue
+      var kw = String(cmd.keyword)
+      out.push({
+        title: cmd.title || kw,
+        keywords: kw + " " + (cmd.keywords || ""),
+        text: "Keyword “" + kw + "”",
+        icon: cmd.icon || (cmd.open ? "󰖟" : "󰘳"),
+        complete: takesQuery(cmd) ? kw + " " : "",
+        run: takesQuery(cmd) ? null : build(cmd, "")
+      })
+    }
+    return out
+  },
   match: function(query, ctx) {
     var list = ctx.settings
     if (!Array.isArray(list)) return []
@@ -65,17 +84,6 @@ var provider = {
         } else if (!rest) {
           out.push({ title: title, subtitle: "Enter to " + (cmd.open ? "open" : "run") + " · " + kw, score: 98, icon: icon, copy: "", run: build(cmd, "") })
         }
-      } else if (space === -1 && word.length >= 2 && kw.indexOf(word) === 0) {
-        // Keyword completion while typing: "lo" → "lock".
-        out.push({
-          title: title,
-          subtitle: "Keyword “" + kw + "”",
-          score: 50,
-          icon: icon,
-          copy: "",
-          run: takesQuery(cmd) ? null : build(cmd, ""),
-          complete: kw + " "
-        })
       }
     }
     return out

@@ -116,7 +116,11 @@ Item {
     var text = row.complete
     if (!text) return false
     input.text = text
-    input.cursorPosition = text.length
+    // Example-style commands ("12*8 + 15%") come in selected, so the answer
+    // shows right away and typing replaces it; mode prefixes (":", "kill ")
+    // leave the cursor at the end.
+    if (row.select) input.selectAll()
+    else input.cursorPosition = text.length
     root.selectedIndex = 0
     return true
   }

@@ -12,6 +12,8 @@ A Spotlight/Raycast-style command bar for the Omarchy shell. Press a hotkey, typ
 | `:fire`, `emoji thumbs up` | Emoji search. Enter types it into the app you were in (`"emoji": { "onEnter": "copy" }` to copy instead) |
 | `kill`, `kill chrome`, `kill -9 node` | Quit your own processes. Several processes with one name can be quit together |
 
+Every feature is also a command you can find by typing its name, like Raycast: `emo` → *Search Emoji*, `curr` → *Convert Currency*, `kil` → *Kill Process*, `clock` → *World Clock*, `goo` → *Search Google*. Commands rank below real answers, so `2+2` still shows 4 first.
+
 Type **`?`** to list everything the bar can do, including your own keyword commands. Enter on a row puts its example into the bar.
 
 Keys: **↑/↓** (or Ctrl+N/P) move the selection, **Enter** copies/opens/runs the selected row, **Tab** completes a keyword, **Esc** clears the text and a second **Esc** closes the bar.
@@ -83,7 +85,7 @@ var provider = {
 }
 ```
 
-Give it a `help` list (`[{ example, text }]`, or a function of `ctx` returning one) so it shows up under `?`. Import it and add it to the list in [`providers/index.js`](providers/index.js), then add its id to `"providers"` in the config. Rows from all providers are merged and sorted by `score`. Run `node tests/run.js` to check providers without the shell.
+Give it a `commands` list (`[{ title, keywords, text, complete, select?, run? }]`) so it can be found by name, and a `help` list (`[{ example, text }]`, or a function of `ctx` returning one) so it shows up under `?`. Import it and add it to the list in [`providers/index.js`](providers/index.js), then add its id to `"providers"` in the config. Rows from all providers are merged and sorted by `score`. Run `node tests/run.js` to check providers without the shell.
 
 ## License
 

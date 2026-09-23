@@ -225,6 +225,9 @@ var provider = {
   id: "math",
   name: "Calculator",
   icon: "󰃬",
+  commands: [
+    { title: "Calculator", keywords: "calculate calc math maths sum arithmetic", text: "Arithmetic, percentages, powers, functions", complete: "12*8 + 15%", select: true }
+  ],
   help: [
     { example: "12*8 + 15%", text: "Arithmetic, percentages, powers (^), mod, n!" },
     { example: "sqrt(2) * pi", text: "Functions: sqrt log ln sin cos tan abs round min max…" }

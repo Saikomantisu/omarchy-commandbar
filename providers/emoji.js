@@ -30,6 +30,9 @@ var provider = {
   id: "emoji",
   name: "Emoji",
   icon: "󰞅",
+  commands: [
+    { title: "Search Emoji", keywords: "emoji emojis emoticon smiley symbols", text: "Type : then a word", complete: ":" }
+  ],
   help: [
     { example: ":fire", text: "Search emoji (or “emoji fire”); Enter types it into the app" }
   ],

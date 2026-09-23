@@ -52,6 +52,18 @@ expect("kill -9 node", "Force quit node"); expect("killer", null)
   const ok = all.every(r => /^kill -(TERM|KILL)( \d+)+$/.test(r.run.target))
   console.log((ok ? "ok  " : "FAIL") + "  " + all.length + " kill targets are pid-only"); if (!ok) fails++ }
 
+// Commands are found from the normal search box.
+expect("emo", "Search Emoji"); expect("curr", "Convert Currency"); expect("goo", "Search Google"); expect("kil", "Kill Process")
+expect("date", "Date Calculator"); expect("help", "Show All Commands"); expect("exchange", "Convert Currency")
+{ const rows = q("clock"); const ok = /Colombo/.test(rows[0].title) && rows.some(r => r.title === "World Clock" && r.complete === "time")
+  console.log((ok ? "ok  " : "FAIL") + "  \"clock\" → real answer first, World Clock command below"); if (!ok) fails++ }
+{ const c = q("curr")[0]; const ok = c.complete === "100 usd to lkr" && c.select === true && !c.copy && !c.run
+  console.log((ok ? "ok  " : "FAIL") + "  command row completes \"" + c.complete + "\" selected"); if (!ok) fails++ }
+{ const ok = q("lock").filter(r => r.title === "Lock screen").length === 1 && q("kill").every(r => r.title !== "Kill Process")
+  console.log((ok ? "ok  " : "FAIL") + "  no duplicate command rows for exact keyword / current mode"); if (!ok) fails++ }
+{ const ok = q("2+2")[0].title === "4" && q("2+2").length === 1
+  console.log((ok ? "ok  " : "FAIL") + "  maths queries don't pull in commands"); if (!ok) fails++ }
+
 const helpRows = q("?")
 const helpOk = helpRows.length === 14 && helpRows[0].title === "12*8 + 15%" && helpRows[9].title === "g …" && helpRows[9].complete === "g " && helpRows.some(r => r.complete === "100 usd to lkr") && helpRows.every(r => !r.copy && !r.run)
 console.log((helpOk ? "ok  " : "FAIL") + "  \"?\" help → " + helpRows.length + " rows: " + helpRows.map(r => r.title).join(" | ")); if (!helpOk) fails++

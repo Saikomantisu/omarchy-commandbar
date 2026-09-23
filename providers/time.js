@@ -303,6 +303,11 @@ var provider = {
   id: "time",
   name: "Time",
   icon: "󰥔",
+  commands: [
+    { title: "World Clock", keywords: "time zone zones timezone clock world now", text: "Current time in your zones", complete: "time" },
+    { title: "Convert Time Zone", keywords: "time zone timezone convert meeting", text: "e.g. 3pm lkt to pst", complete: "3pm to tokyo", select: true },
+    { title: "Date Calculator", keywords: "date dates days until since countdown calendar weekday", text: "Countdowns, date differences, date + n days", complete: "days until dec 25", select: true }
+  ],
   help: [
     { example: "time in tokyo", text: "Current time anywhere; “time” alone for your zones" },
     { example: "3pm to new york", text: "Convert a time between zones (e.g. 3pm lkt to pst)" },
