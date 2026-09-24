@@ -27,6 +27,7 @@ Item {
   readonly property string userConfigPath: home + "/.config/omarchy/extensions/commandbar.json"
   readonly property string cacheDir: home + "/.cache/omarchy-commandbar"
   readonly property string ratesUrl: "https://open.er-api.com/v6/latest/USD"
+  readonly property int ratesMaxBytes: 256 * 1024
 
   property var defaultConfig: ({})
   property var userConfig: ({})
@@ -343,9 +344,14 @@ Item {
 
   Process {
     id: ratesProc
+    // Size-capped download: curl aborts past the limit, head cuts the stream even
+    // without a Content-Length, and anything over the limit is discarded before
+    // it reaches rates.json (and so FileView / JSON.parse).
     command: ["bash", "-c",
-      "mkdir -p \"$1\" && curl -fsS --max-time 8 \"$2\" -o \"$1/rates.json.tmp\" && mv \"$1/rates.json.tmp\" \"$1/rates.json\"",
-      "_", root.cacheDir, root.ratesUrl]
+      "set -o pipefail; t=\"$1/rates.json.tmp\"; " +
+      "mkdir -p \"$1\" && curl -fsS --max-time 8 --max-filesize \"$3\" \"$2\" | head -c \"$(($3 + 1))\" > \"$t\" " +
+      "&& [ \"$(stat -c %s \"$t\")\" -le \"$3\" ] && mv \"$t\" \"$1/rates.json\" || { rm -f \"$t\"; exit 1; }",
+      "_", root.cacheDir, root.ratesUrl, String(root.ratesMaxBytes)]
     onExited: function(exitCode) {
       if (exitCode !== 0) {
         root.ratesStatus = root.rates ? "" : "Couldn't reach open.er-api.com"
