@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.saikomantisu.commandbar",
   "name": "Command Bar",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "author": "Saikomantisu",
   "license": "MIT",
   "description": "Spotlight-style command bar: app launcher, calculator, currency, time zones, date maths, emoji, kill process, ask your AI agent and your own keyword commands",
