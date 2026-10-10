@@ -66,8 +66,7 @@ var provider = {
   help: [
     { id: "windows", title: "Switch window", about: "Type an app or a window title. w and a space lists them all",
       examples: [{ q: "w ", note: "Every other open window, most recent first" },
-                 { q: "w github", hint: "Windows with github in the title" },
-                 { q: "brave", hint: "Brave's windows first, then Brave to open a new one" }] }
+                 { q: "w term", hint: "Only your terminal windows" }] }
   ],
   match: function(query, ctx) {
     var list = (ctx.windows || []).filter(function(w) {

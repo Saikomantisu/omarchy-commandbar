@@ -59,8 +59,8 @@ var provider = {
   name: "Apps",
   icon: "󰀻",
   help: [
-    { id: "apps", title: "Open an app", about: "Type part of an app's name, or what it does",
-      examples: ["firefox", "term", "brave new window"] }
+    { id: "apps", title: "Open an app", about: "Type part of an app's name, or what it does. Add an action after the name, like new window",
+      examples: ["browser", "term", "files"] }
   ],
   match: function(query, ctx) {
     if (/^\s*w\s/i.test(query)) return []   // "w …" is the windows-only mode

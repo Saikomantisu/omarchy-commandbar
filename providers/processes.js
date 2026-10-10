@@ -21,9 +21,9 @@ var provider = {
     { title: "Kill a process", keywords: "kill quit process processes force end task manager", text: "Stop an app, or every process it started", complete: "kill " }
   ],
   help: [
-    { id: "kill", title: "Kill a process", about: "Quit an app, or every process it started",
-      examples: [{ q: "kill ", note: "Your processes, busiest first" }, { q: "kill chrome", note: "Quits every chrome process" },
-                 { q: "kill -9 node", note: "Force quit, for an app that hangs" }] }
+    { id: "kill", title: "Kill a process", about: "Quit an app, or every process it started. Type its name after kill",
+      examples: [{ q: "kill ", note: "Your processes, busiest first" },
+                 { q: "kill -9 ", note: "Force quit, for an app that hangs" }] }
   ],
   match: function(query, ctx) {
     var m = query.match(/^\s*kill(?:\s+(-9|-KILL|--force))?(?:\s+(.*))?$/i)
