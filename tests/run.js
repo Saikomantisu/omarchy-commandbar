@@ -180,6 +180,7 @@ expect("g foo bar", "Search Google: foo bar")
     ["bound twice + foreign conflict → no bind, no unbind", (r => !r.bound && r.conflict !== "" && r.lua.length === 0)(H.plan(j([mine, mine, foreign]), "SUPER + PERIOD", cmd))],
     ["already bound → nothing", (r => r.bound && r.lua.length === 0)(H.plan(j([other, mine]), "SUPER + PERIOD", cmd))],
     ["key changed → unbind old, bind new", (r => r.bound && r.lua[0] === 'hl.unbind("SUPER + PERIOD")' && /^hl\.bind\("SUPER \+ ALT \+ C"/.test(r.lua[1]))(H.plan(j([mine]), "SUPER + ALT + C", cmd))],
+    ["old key bound twice → one unbind", (r => r.bound && r.lua.length === 3 && r.lua.filter(s => s === 'hl.unbind("SUPER + PERIOD")').length === 1)(H.plan(j([mine, mine]), "SUPER + ALT + C", cmd))],
     ["taken by another → no bind, conflict", (r => !r.bound && r.conflict === "Keybindings" && r.lua.length === 0)(H.plan(j([other]), "SUPER + K", cmd))],
     ["key changed to taken → unbind old, conflict", (r => !r.bound && r.conflict !== "" && r.lua.length === 1 && r.lua[0] === 'hl.unbind("SUPER + PERIOD")')( H.plan(j([mine, other]), "SUPER + K", cmd))],
     ["hotkey \"\" → unbind ours only", (r => !r.bound && r.lua.join() === 'hl.unbind("SUPER + PERIOD")')(H.plan(j([other, mine]), "", cmd))],
