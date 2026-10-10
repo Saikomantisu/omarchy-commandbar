@@ -1,4 +1,5 @@
 .pragma library
+.import "files.js" as Files
 
 // Launch installed applications. CommandBar.qml keeps a snapshot of the
 // visible desktop entries in ctx.apps:
@@ -64,6 +65,7 @@ var provider = {
   ],
   match: function(query, ctx) {
     if (/^\s*w\s/i.test(query)) return []   // "w …" is the windows-only mode
+    if (Files.isPath(query)) return []   // a path being browsed
     var q = query.trim().toLowerCase().replace(/\s+/g, " ")
     var apps = ctx.apps || []
     if (!q || apps.length === 0) return []

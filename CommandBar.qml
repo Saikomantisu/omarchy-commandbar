@@ -9,7 +9,7 @@ import "services"
 import "ui"
 
 // Spotlight-style command bar. This file holds the bar's state and the card
-// it draws; the data it needs (exchange rates, zone offsets, apps…) comes
+// it draws; the data it needs (exchange rates, zone offsets, apps, files…) comes
 // from services/, the pieces of the card are in ui/, and what a query
 // *means* is decided by the providers in providers/, run through
 // lib/Engine.js.
@@ -98,6 +98,7 @@ Item {
     root.lastPointer = Qt.point(-1, -1)
     zones.refresh()
     windows.refresh()
+    files.forget()   // files may have come and gone since
     agent.refresh()   // picked up when it changes, even after the shell started
     root.recompute()   // the kept query may be time-sensitive ("time", "3pm to tokyo")
     // Like Spotlight: the last query comes back selected, so typing replaces it
@@ -145,8 +146,13 @@ Item {
       windows: windows.list,
       launches: apps.launches,
       agent: agent.name,
+      files: files.result,
+      folder: files.folder,
+      home: root.home,
       requestProcesses: processes.request,
-      requestRates: rates.refresh
+      requestRates: rates.refresh,
+      requestFiles: files.request,
+      requestFolder: files.browse
     })
     root.mode = Engine.mode(input.text, root.config)
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
@@ -237,6 +243,7 @@ Item {
   Processes { id: processes; onUpdated: root.refresh() }
   Apps { id: apps; cache: cacheFiles; onUpdated: root.refresh() }
   Windows { id: windows; onUpdated: root.refresh() }
+  Files { id: files; onUpdated: root.refresh() }
 
   // ---------------------------------------------------------------- config
 

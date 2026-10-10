@@ -191,8 +191,8 @@ expect("g foo bar", "Search Google: foo bar")
 
 // help: topics, a topic's examples with live answers, search, and quiet previews
 { const top = q("?"), titles = top.map(r => r.title).join("|")
-  const ok = titles === "Open an app|Switch window|Calculator|Units|Currency|Time zones|Dates|Emoji|Kill a process|Ask your agent|Keywords"
-    && top.every(r => r.help && !r.run && !r.copy && r.actionLabel === "Open") && top[2].complete === "?calc" && !top[0].section
+  const ok = titles === "Open an app|Switch window|Files|Calculator|Units|Currency|Time zones|Dates|Emoji and symbols|Kill a process|Generate and encode|Web address|Ask your agent|Keywords"
+    && top.every(r => r.help && !r.run && !r.copy && r.actionLabel === "Open") && top[3].complete === "?calc" && !top[0].section
   console.log((ok ? "ok  " : "FAIL") + "  \"?\" → " + titles); if (!ok) fails++ }
 { const u = q("?units"), sub = u.map(r => r.title + " " + r.subtitle)
   const ok = u[0].section === "Units" && u[0].title === "5 km to mi" && u[0].subtitle === "→ 3.1069 mi" && u[0].complete === "5 km to mi" && u[0].select
@@ -299,6 +299,119 @@ console.log((out === "it's; rm -rf ~" ? "ok  " : "FAIL") + "  shell quoting → 
   { const r = helper("<b>x</b>", "hi")
     check("a damaged agent name opens the picker, not a notification", !r.launched && !r.notified && r.picked && r.picked[0] === "--pick") }
   fs.rmSync(dir, { recursive: true, force: true }) }
+
+// symbols, in the ":" search beside emoji
+{ const top = x => q(x)[0]
+  const ok = top(":em dash").icon === "—" && top(":em dash").copy === "—" && top(":degree").icon === "°" && top(":cmd").icon === "⌘"
+    && top(":fire").icon === "🔥" && q(":arrow").some(r => r.group === "Symbols" && r.icon === "→")
+    && top(":em dash").run.target === "omarchy-menu-emoji-insert '—'; printf %s '—' | wl-copy"
+  console.log((ok ? "ok  " : "FAIL") + "  symbols → " + [":em dash", ":degree", ":cmd", ":fire"].map(x => top(x).icon).join(" ")); if (!ok) fails++ }
+{ const r = Engine.run(":degree", { providers: ["emoji"] }, { emojis: [] })
+  const ok = r[0].icon === "°" && r[r.length - 1].title === "Loading emoji…"
+  console.log((ok ? "ok  " : "FAIL") + "  symbols are searched while emoji load"); if (!ok) fails++ }
+
+// web addresses
+expect("github.com", "Open github.com"); expect("localhost:3000", "Open localhost:3000"); expect("https://omarchy.org/news", "Open omarchy.org/news")
+expect("www.example.co.uk/a?b=1", "Open www.example.co.uk/a?b=1"); expect("192.168.1.1:8080", "Open 192.168.1.1:8080")
+expect("readme.md", null); expect("script.sh", null); expect("e.g", null); expect("5.5", null); expect("v1.2", null)
+expect("file:///etc/passwd", null); expect("javascript:alert(1)", null); expect("github.com is down", null)
+expect("main.cc", null); expect("script.pl", null); expect("1.2.3.4", null); expect("1.2.3.4:8080", "Open 1.2.3.4:8080"); expect("10.0.0.1", "Open 10.0.0.1"); expect("300.1.1.1:80", null)
+{ const t = ["github.com", "localhost:3000", "https://omarchy.org", "192.168.1.1"].map(x => q(x)[0].run)
+  const ok = t.every(r => r.kind === "open" && /^https?:\/\/\S+$/.test(r.target)) && t[0].target === "https://github.com" && t[1].target === "http://localhost:3000"
+  console.log((ok ? "ok  " : "FAIL") + "  addresses open as http(s) only → " + t.map(r => r.target).join(" | ")); if (!ok) fails++ }
+
+// generators, checked against node's own crypto and Buffer
+{ const crypto = require("crypto")
+  const samples = ["hello", "Hello, World!", "ünïcödé ✓ 🔥", "a".repeat(55), "b".repeat(56), "c".repeat(64), "x".repeat(1000)]
+  const bad = []
+  for (const text of samples) for (const [word, algo] of [["md5", "md5"], ["sha1", "sha1"], ["sha256", "sha256"]]) {
+    const got = q(word + " " + text)[0].title, want = crypto.createHash(algo).update(text, "utf8").digest("hex")
+    if (got !== want) bad.push(word + " " + text.slice(0, 12))
+  }
+  for (const text of samples) {
+    const enc = q("base64 " + text).find(r => /^Base64 of/.test(r.subtitle)).title
+    if (enc !== Buffer.from(text, "utf8").toString("base64")) bad.push("base64 " + text.slice(0, 12))
+    const dec = q("base64 " + Buffer.from(text, "utf8").toString("base64"))[0]
+    if (dec.title !== text || dec.subtitle !== "Decoded from base64") bad.push("unbase64 " + text.slice(0, 12))
+  }
+  const ok = bad.length === 0
+  console.log((ok ? "ok  " : "FAIL") + "  md5, sha1, sha256 and base64 match node's for " + samples.length + " texts" + (ok ? "" : " → " + bad.join(", "))); if (!ok) fails++ }
+expect("base64 hello", "aGVsbG8="); expect("base64 aGVsbG8", "hello"); expect("urlencode a b&c", "a%20b%26c"); expect("urldecode a%20b+c", "a b c")
+expect("urldecode %E0%A4%A", "Not valid URL encoding"); expect("sha256", /^Type the text/); expect("uuid x", null); expect("md5sum x", null)
+{ const a = q("uuid")[0], b = q("guid")[0]
+  const ok = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(a.title) && a.copy === a.title && !a.run && a.title !== b.title
+  console.log((ok ? "ok  " : "FAIL") + "  uuid → " + a.title); if (!ok) fails++ }
+{ const a = q("uuid")[0].title, b = q("uuid")[0].title, c = (q("u"), q("uuid")[0].title)
+  const ok = a === b && c !== a
+  console.log((ok ? "ok  " : "FAIL") + "  a refresh keeps the uuid, typing it again makes a new one"); if (!ok) fails++ }
+expect("constructor", null); expect("constructor x", null)
+{ const r = Engine.run("sha256 x", { providers: ["commands", "generate"], commands: [{ keyword: "sha256", title: "Mine", open: "https://example.com/?q={q}" }] }, {})
+  const ok = r.length === 1 && r[0].provider === "commands"
+  console.log((ok ? "ok  " : "FAIL") + "  a keyword command of the same name wins over a generator"); if (!ok) fails++ }
+
+// files, against a sample of what fd found
+{ const found = { query: "invoice", list: ["/home/u/Downloads/Invoice-2026.pdf", "/home/u/Documents/Notes/invoice research.md", "/home/u/Work/Invoices/", "/home/u/Downloads/old/invoice.pdf"] }
+  const asked = []
+  const run = (x, files, extra) => Engine.run(x, Object.assign({}, config, extra || {}), { apps, emojis, files, home: "/home/u", requestFiles: w => asked.push(w) })
+  const r = run(".invoice", found), titles = r.map(x => x.title)
+  const ok1 = titles.join("|") === "invoice.pdf|Invoice-2026.pdf|Invoices|invoice research.md" && r[0].subtitle === "~/Downloads/old"
+    && r[2].subtitle === "~/Work · folder" && r[2].run.target === "/home/u/Work/Invoices" && r[0].run.kind === "open" && asked.includes("invoice")
+  console.log((ok1 ? "ok  " : "FAIL") + "  \".invoice\" → exact name, then shallow, folders opened without the slash → " + titles.join(" | ")); if (!ok1) fails++
+  const ok2 = run("f invoice", found).map(x => x.title).join() === titles.join() && run(". invoice", found)[0].title === "invoice.pdf"
+  console.log((ok2 ? "ok  " : "FAIL") + "  \"f invoice\" and \". invoice\" search too"); if (!ok2) fails++
+  // While fd works on newer words, the last answer narrowed down to them stands in.
+  const typing = run(".invoice re", found), waiting = run(".tax", found), none = run(".tax", { query: "tax", list: [] })
+  const ok3 = typing.map(x => x.title).join() === "invoice research.md" && waiting[0].title === "Searching…" && !waiting[0].run && /^No file matches/.test(none[0].title)
+  console.log((ok3 ? "ok  " : "FAIL") + "  narrowing while fd runs, then searching…, then no match → " + [typing[0].title, waiting[0].title, none[0].title].join(" | ")); if (!ok3) fails++
+  const ok4 = run(".5*2", found)[0].title === "1" && run("f", found)[0].provider === "apps" && run("files", found)[0].title === "Files"
+    && run(".", found)[0].title === "Type part of a file name" && run(".x", found)[0].title === "Type part of a file name" && run("...", found).length === 0
+  console.log((ok4 ? "ok  " : "FAIL") + "  \".5*2\" stays maths, \"f\" and \"files\" stay apps"); if (!ok4) fails++
+  const mine = run("f invoice", found, { commands: [{ keyword: "f", title: "Mine", open: "https://example.com/?q={q}" }] })
+  const ok5 = mine[0].provider === "commands" && !mine.some(x => x.provider === "files") && Engine.mode("f x", Object.assign({}, config, { commands: [{ keyword: "f", title: "Mine", open: "x{q}" }] })).label === "Mine"
+  console.log((ok5 ? "ok  " : "FAIL") + "  a keyword command called f keeps f"); if (!ok5) fails++
+  const m = x => (Engine.mode(x, config) || {}).label || ""
+  const ok6 = m(".invoice") === "Files" && m(".") === "Files" && m("f inv") === "Files" && m(". 2024 tax") === "Files" && m(".5") === "" && m("f") === ""
+  console.log((ok6 ? "ok  " : "FAIL") + "  files chip → " + [m(".invoice"), m("f inv"), m(".5") || "none"].join(" | ")); if (!ok6) fails++
+  // Help never starts a search.
+  const before = asked.length; run("?files", found)
+  const ok7 = asked.length === before
+  console.log((ok7 ? "ok  " : "FAIL") + "  browsing ?files doesn't run fd"); if (!ok7) fails++
+  const searched = asked.length, decimal = run(".5 km to m", found)
+  const ok8 = m(".5 km to m") === "" && m(".5 usd to eur") === "" && decimal[0].title === "500 m" && !decimal.some(x => x.provider === "files") && asked.length === searched
+  console.log((ok8 ? "ok  " : "FAIL") + "  \".5 km to m\" stays a conversion and doesn't run fd"); if (!ok8) fails++
+  const dirs = []
+  const dot = Engine.run(".bashrc", config, { apps, emojis, home: "/home/u", files: { query: "bashrc", list: ["/home/u/notes/bashrc-tips.md"] }, requestFiles: () => {}, requestFolder: d => dirs.push(d),
+    folder: { dir: "/home/u/", list: ["/home/u/.bashrc", "/home/u/.config/", "/home/u/Downloads/"], missing: false } })
+  const ok9 = dot.map(x => x.title).join("|") === ".bashrc|bashrc-tips.md" && dirs.includes("/home/u/")
+  console.log((ok9 ? "ok  " : "FAIL") + "  \".bashrc\" finds the dotfile in the home folder → " + dot.map(x => x.title).join(" | ")); if (!ok9) fails++ }
+
+// browsing files by path, against a sample folder
+{ const home = "/home/u"
+  const listing = { "/home/u/": ["/home/u/Downloads/", "/home/u/Documents/", "/home/u/.config/", "/home/u/notes.txt", "/home/u/.bashrc", "/home/u/docs.pdf"],
+                    "/home/u/Downloads/": ["/home/u/Downloads/Invoice-2026.pdf", "/home/u/Downloads/old/", "/home/u/Downloads/My invoice.pdf", "/home/u/Downloads/zip.zip"],
+                    "/": ["/bin/", "/etc/", "/home/"] }
+  const asked = []
+  const run = (x, dir) => Engine.run(x, config, { apps, emojis, home, requestFolder: d => asked.push(d),
+    folder: dir === undefined ? null : (listing[dir] ? { dir, list: listing[dir], missing: false } : { dir, list: [], missing: true }) })
+  const t = rows => rows.map(r => r.title).join("|")
+  const home1 = run("~/", "/home/u/")
+  const ok1 = t(home1) === "Open ~|Documents|Downloads|docs.pdf|notes.txt" && home1[0].run.target === "/home/u" && home1[0].section === "This folder" && home1[1].section === "In ~" && !home1[2].section
+    && home1[2].complete === "~/Downloads/" && home1[2].run.target === "/home/u/Downloads" && !home1[3].complete && home1[3].run.target === "/home/u/docs.pdf"
+    && asked.includes("/home/u/") && t(run("~", "/home/u/")) === t(home1)
+  console.log((ok1 ? "ok  " : "FAIL") + "  \"~/\" → open this folder, then its contents, folders first, hidden ones left out → " + t(home1)); if (!ok1) fails++
+  const ok2 = t(run("~/do", "/home/u/")) === "Documents|Downloads|docs.pdf" && t(run("~/.c", "/home/u/")) === ".config" && t(run("~/.", "/home/u/")) === ".config|.bashrc"
+    && t(run("~/Downloads/inv", "/home/u/Downloads/")) === "Invoice-2026.pdf|My invoice.pdf" && run("~/Downloads/inv", "/home/u/Downloads/")[0].section === "In ~/Downloads" && run("~/Downloads/", "/home/u/Downloads/")[0].title === "Open ~/Downloads"
+  console.log((ok2 ? "ok  " : "FAIL") + "  names that start with what's typed come first; a dot shows hidden ones → " + ["~/do", "~/.c", "~/."].map(x => t(run(x, "/home/u/"))).join(" · ")); if (!ok2) fails++
+  const ok3 = run("~/Downloads/", "/home/u/")[0].title === "Reading ~/Downloads/…" && run("~/nope/", "/home/u/nope/")[0].title === "No folder ~/nope/"
+    && /^Nothing in ~\/ starts with/.test(run("~/zzz", "/home/u/")[0].title) && t(run("/", "/")) === "bin|etc|home" && run("/", "/")[0].section === "In /" && run("/e", "/")[0].complete === "/etc/"
+  console.log((ok3 ? "ok  " : "FAIL") + "  reading, missing folder, nothing matches, and / from the top"); if (!ok3) fails++
+  const slow = Engine.run("~/net/", config, { apps, emojis, home, requestFolder: () => {}, folder: { dir: "/home/u/net/", list: [], missing: false, failed: true } })
+  const ok3b = slow[0].title === "Couldn't read ~/net/"
+  console.log((ok3b ? "ok  " : "FAIL") + "  a folder that timed out isn't called missing"); if (!ok3b) fails++
+  const m = x => (Engine.mode(x, config) || {}).label || ""
+  const ok4 = m("~/") === "Files" && m("~") === "Files" && m("/etc/") === "Files" && run("~foo", "/home/u/").every(r => r.provider !== "files")
+    && run("~/.con", "/home/u/").every(r => r.provider === "files") && run("~/c", "/home/u/").every(r => r.provider === "files") && q("2/3")[0].title === "0.6666666667"
+  console.log((ok4 ? "ok  " : "FAIL") + "  path chip, \"~foo\" isn't a path, no command rows while browsing, 2/3 stays maths"); if (!ok4) fails++ }
 
 // bin/commandbar-cache, run against a throwaway HOME.
 { const fs = require("fs"), os = require("os"), { spawnSync } = require("child_process")
