@@ -22,7 +22,49 @@ Keep only one copy in that folder. Two copies register the same plugin ID.
 
 After changing the code, run `omarchy restart shell` to load it. The shell reloads plugins on its own when files change, but that isn't always reliable, so restart before you decide something works. `journalctl --user -f | grep -i commandbar` shows the bar's warnings and errors.
 
-New features go in `providers/`. The README's "Adding a feature" section shows the format.
+New features go in `providers/`. See [Adding a feature](#adding-a-feature) for the format.
+
+## Adding a feature
+
+Each feature is a JavaScript file in `providers/`:
+
+```js
+.pragma library
+
+var provider = {
+  id: "units",
+  name: "Units",
+  icon: "󰕒",
+  // Found by name: typing "unit" shows this command.
+  commands: [{ title: "Convert Units", keywords: "unit convert", text: "e.g. 5 km to mi", complete: "5 km to mi", select: true }],
+  // Shown in the "?" list.
+  help: [{ title: "Units", examples: ["5 km to mi", "30c to f"] }],
+  // Return [] if the query isn't for this feature.
+  match: function(query, ctx) {
+    return [{ title: "3.11 mi", subtitle: "5 km → mi", score: 80, copy: "3.11" }]
+  }
+}
+```
+
+A result can include `run: { kind: "open" | "run", target }` to open or run something on Enter, `group` to list it under its own heading instead of the feature's name, and `fallback: true` to show it only when no other result does. `ctx.settings` is the provider's section of the config. `ctx` also has `rates`, `zones`, `localZone`, `emojis`, `processes`, `now()`, `format(n)` and `plain(n)`.
+
+To enable it, import it in [`providers/index.js`](providers/index.js), add it to the list there, and add its `id` to `"providers"` in the config.
+
+## Dependencies
+
+All of these come with Omarchy:
+
+- `curl`: exchange rates
+- `wl-copy` (from `wl-clipboard`): copying results
+- `xdg-open`: web keyword commands
+- `ps` and `kill` (from `procps-ng`): the process list
+- `date` and `timedatectl`: time zones
+- `uwsm-app` and `gtk-launch`: opening apps, the same way Omarchy's own launcher does
+- `hyprctl`: setting the hotkey, and listing and focusing windows
+- `notify-send`: warning when the hotkey is already taken
+- `python3`: reading and writing the cache files safely (`bin/commandbar-cache`)
+- `omarchy-menu-emoji-insert` and Omarchy's `emojis.json`: emoji
+- `omarchy-default-agent`, `omarchy-cmd-missing`, `omarchy-agent-prompt` and `omarchy-agent --pick`: asking your agent (`bin/commandbar-agent`)
 
 ## Tests
 
@@ -42,7 +84,7 @@ The plugin is published through the Omarchy plugin marketplace, and its automate
 - Don't write to the user's config files. The bar writes only to `~/.cache/omarchy-commandbar/`.
 - Keep the defaults neutral. Personal choices, such as a currency, time zone or hotkey, go in your own `~/.config/omarchy/extensions/commandbar.json`, not in `config.default.json`.
 - Put what the user types into shell commands only through the existing quoting. See `{q}` handling in `providers/commands.js`.
-- List any new command-line tool in the README's Dependencies section.
+- List any new command-line tool in [Dependencies](#dependencies) above.
 
 ## License
 
