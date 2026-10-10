@@ -251,14 +251,16 @@ Item {
 
   function ensureHotkey() {
     if (!root.configsLoaded) return
-    if (bindsProc.running) { root.hotkeyQueued = true; return }
+    // Wait for the previous bind to land too: reading the binds before it has
+    // would see the key as free and bind it a second time.
+    if (bindsProc.running || evalProc.running) { root.hotkeyQueued = true; return }
     bindsProc.running = true
   }
 
   function reconcileHotkey(bindsJson) {
     var hotkey = String(root.config.hotkey || "").trim()
     var p = Hotkey.plan(bindsJson, hotkey, root.toggleCommand)
-    if (p.lua.length > 0) Quickshell.execDetached(["hyprctl", "eval", p.lua.join("\n")])
+    if (p.lua.length > 0) { evalProc.command = ["hyprctl", "eval", p.lua.join("\n")]; evalProc.running = true }
     root.boundHotkey = p.bound ? hotkey : ""
     if (p.conflict && root.warnedConflict !== hotkey) {
       root.warnedConflict = hotkey
@@ -266,7 +268,16 @@ Item {
       Quickshell.execDetached(["notify-send", "-a", "Command Bar", "Command Bar has no hotkey",
         hotkey + " already opens \"" + p.conflict + "\". Set a different \"hotkey\" in ~/.config/omarchy/extensions/commandbar.json."])
     }
+    if (!evalProc.running) root.runQueuedHotkey()
+  }
+
+  function runQueuedHotkey() {
     if (root.hotkeyQueued) { root.hotkeyQueued = false; root.ensureHotkey() }
+  }
+
+  Process {
+    id: evalProc
+    onExited: root.runQueuedHotkey()
   }
 
   Process {
