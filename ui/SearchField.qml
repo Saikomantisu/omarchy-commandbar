@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell.Io
 import qs.Commons
 
 // The search input, with the mode chip a prefix puts up (Emoji, Windows,
@@ -10,6 +11,29 @@ Item {
   property alias input: textInput
 
   height: bar.inputHeight
+
+  // Paste goes through wl-paste instead of Qt's own, which reads the whole
+  // clipboard on the shell's thread however big it is: an app offering an
+  // endless clipboard would freeze the shell. This takes the first 4 KB and
+  // gives up after a second.
+  function paste(primary) {
+    if (pasteProc.running) return
+    pasteProc.command = ["bash", "-c", "timeout 1 wl-paste --no-newline --type text" + (primary ? " --primary" : "")
+                         + " 2>/dev/null | head -c 4096"]
+    pasteProc.running = true
+  }
+
+  Process {
+    id: pasteProc
+    stdout: StdioCollector { id: pasteOut; waitForEnd: true }
+    onExited: {
+      // One line, and no half character where head cut it off.
+      var text = String(pasteOut.text || "").replace(/[\r\n\t]+/g, " ").replace(/[\x00-\x1f\x7f]/g, "").replace(/\ufffd$/, "")
+      if (!text) return
+      if (textInput.selectedText) textInput.remove(textInput.selectionStart, textInput.selectionEnd)
+      textInput.insert(textInput.cursorPosition, text)
+    }
+  }
 
   Text {
     id: promptGlyph
@@ -53,10 +77,22 @@ Item {
       elide: Text.ElideRight
     }
 
+    // Middle-click pastes the primary selection, also through field.paste().
+    MouseArea {
+      anchors.fill: parent
+      acceptedButtons: Qt.MiddleButton
+      onPressed: function(mouse) {
+        textInput.cursorPosition = textInput.positionAt(mouse.x, mouse.y)
+        field.paste(true)
+      }
+    }
+
     Keys.priority: Keys.BeforeItem
     Keys.onPressed: function(event) {
       var bar = field.bar
-      if (event.key === Qt.Key_Escape) {
+      if (event.matches(StandardKey.Paste)) {
+        field.paste(false); event.accepted = true
+      } else if (event.key === Qt.Key_Escape) {
         if (bar.inHelpTopic) bar.helpBack()
         else if (textInput.text) textInput.text = ""
         else bar.dismiss()
