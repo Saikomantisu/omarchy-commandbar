@@ -16,7 +16,7 @@ Item {
 
   // The same dispatch Omarchy's launch-or-focus uses: the Lua form first,
   // then the classic one. The address is checked to be Hyprland's hex form.
-  function focus(address) {
+  function switchTo(address) {
     if (!/^0x[0-9a-fA-F]+$/.test(String(address))) return
     Quickshell.execDetached(["bash", "-c",
       "hyprctl dispatch \"hl.dsp.focus({ window = \\\"address:$1\\\" })\" >/dev/null 2>&1 || hyprctl dispatch focuswindow \"address:$1\"",

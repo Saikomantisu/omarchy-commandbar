@@ -184,7 +184,7 @@ Item {
     if (row.run) {
       root.finish()
       if (row.run.kind === "app") apps.launch(row.run.target, row.run.action)
-      else if (row.run.kind === "window") windows.focus(row.run.target)
+      else if (row.run.kind === "window") windows.switchTo(row.run.target)
       else if (row.run.kind === "open") Quickshell.execDetached(["xdg-open", row.run.target])
       else if (row.run.kind === "agent") Quickshell.execDetached([root.pluginDir + "/bin/commandbar-agent", row.run.target])
       else Quickshell.execDetached(["bash", "-c", row.run.target])
