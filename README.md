@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Command Bar: Spotlight-style command bar for Omarchy" src="preview.png" />
+  <img alt="Command Bar searching files, browsing a folder, opening a web address, generating a UUID, finding a symbol, converting currency, showing the time in Tokyo, converting units, switching windows, quitting processes and asking an AI agent" src="screenshots/demo.gif" width="720" />
 </p>
 
 <h1 align="center">Command Bar</h1>
@@ -55,19 +55,6 @@ Then press **Super + Period** to open it. Everything it needs comes with Omarchy
 
 Type `?` in the bar for help and examples for every feature.
 
-<table>
-  <tr>
-    <th>Open an app</th>
-    <th>Switch window</th>
-    <th>Kill a process</th>
-  </tr>
-  <tr valign="top">
-    <td><img src="screenshots/apps.png" alt="Opening Brave or one of its actions"></td>
-    <td><img src="screenshots/windows.png" alt="Switching to an open window"></td>
-    <td><img src="screenshots/kill.png" alt="Quitting a process"></td>
-  </tr>
-</table>
-
 ## Why Command Bar
 
 Omarchy already has an emoji picker, a calculator and an agent picker, each on its own key. I wanted one key for all of that, plus currency, time zones, units, windows and killing processes. Command Bar is that key. It sits on Super + Period, leaves the menu on Super + Space alone and needs nothing Omarchy doesn't already ship.
@@ -113,4 +100,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT
+[MIT](LICENSE)
