@@ -21,6 +21,7 @@
 <p align="center">
   <a href="#install">Install</a> ·
   <a href="#features">Features</a> ·
+  <a href="#why-command-bar">Why Command Bar</a> ·
   <a href="#configure">Configure</a> ·
   <a href="#privacy">Privacy</a> ·
   <a href="#contributing">Contributing</a>
@@ -66,6 +67,14 @@ Type `?` in the bar for help and examples for every feature.
     <td><img src="screenshots/kill.png" alt="Quitting a process"></td>
   </tr>
 </table>
+
+## Why Command Bar
+
+Omarchy already has an emoji picker, a calculator and an agent picker, each on its own key. I wanted one key for all of that, plus currency, time zones, units, windows and killing processes. Command Bar is that key. It sits on Super + Period, leaves the menu on Super + Space alone and needs nothing Omarchy doesn't already ship.
+
+It isn't going anywhere. It has tests, and each release goes through the Omarchy marketplace's verification before it shows up there. There have been six releases since 1.0 on 24 September.
+
+If you'd rather replace the Omarchy menu itself, [Keystroke](https://github.com/evindor/keystroke) does that.
 
 ## Configure
 
