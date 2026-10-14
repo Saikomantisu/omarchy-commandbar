@@ -89,11 +89,13 @@ function words(text) { return String(text || "").toLowerCase().split(/\s+/).filt
 function baseName(path) { return path.replace(/\/$/, "").replace(/^.*\//, "") }
 
 // How well a name matches the first word: the whole name, the name without
-// its extension, the start of the name, the start of a word in it, anywhere.
+// its extension, its extension (only when the dot was typed with the word,
+// ".jpeg"), the start of the name, the start of a word in it, anywhere.
 // A hidden file's dot doesn't count, so ".bashrc" is a whole-name match.
-function rank(name, first) {
+function rank(name, first, ext) {
   var n = name.toLowerCase().replace(/^\./, "")
-  if (n === first || n.replace(/\.[^.]*$/, "") === first) return 4
+  if (n === first || n.replace(/\.[^.]*$/, "") === first) return 5
+  if (ext && n.slice(-first.length - 1) === "." + first) return 4
   if (n.indexOf(first) === 0) return 3
   if (new RegExp("[^a-z0-9]" + first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(n)) return 2
   return 1
@@ -189,8 +191,9 @@ var provider = {
     if (list.length === 0)
       return [{ title: done ? "No file matches \"" + needle + "\"" : "Searching…", subtitle: "Files in your home folder", score: 40, copy: "" }]
 
+    var ext = /^\s*\.\S/.test(query)
     var ranked = list.map(function(p) {
-      return { p: p, r: rank(baseName(p), qw[0]), depth: p.split("/").length }
+      return { p: p, r: rank(baseName(p), qw[0], ext), depth: p.split("/").length }
     })
     ranked.sort(function(a, b) { return b.r - a.r || a.depth - b.depth || a.p.length - b.p.length || (a.p < b.p ? -1 : 1) })
     return ranked.slice(0, LIMIT).map(function(x, n) { return row(x.p, ctx.home, 96 - n * 0.01) })

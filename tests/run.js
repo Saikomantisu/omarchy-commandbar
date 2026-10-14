@@ -383,7 +383,13 @@ expect("constructor", null); expect("constructor x", null)
   const dot = Engine.run(".bashrc", config, { apps, emojis, home: "/home/u", files: { query: "bashrc", list: ["/home/u/notes/bashrc-tips.md"] }, requestFiles: () => {}, requestFolder: d => dirs.push(d),
     folder: { dir: "/home/u/", list: ["/home/u/.bashrc", "/home/u/.config/", "/home/u/Downloads/"], missing: false } })
   const ok9 = dot.map(x => x.title).join("|") === ".bashrc|bashrc-tips.md" && dirs.includes("/home/u/")
-  console.log((ok9 ? "ok  " : "FAIL") + "  \".bashrc\" finds the dotfile in the home folder → " + dot.map(x => x.title).join(" | ")); if (!ok9) fails++ }
+  console.log((ok9 ? "ok  " : "FAIL") + "  \".bashrc\" finds the dotfile in the home folder → " + dot.map(x => x.title).join(" | ")); if (!ok9) fails++
+  // ".jpeg" reads as an extension: names ending in it first. ". jpeg" is just a word.
+  const pics = { query: "jpeg", list: ["/home/u/jpeg-exports/", "/home/u/notes/jpeg_vs_png.md", "/home/u/Pictures/beach.jpeg", "/home/u/jpeg"] }
+  const ext = run(".jpeg", pics).map(x => x.title), word = run(". jpeg", pics).map(x => x.title)
+  const ok10 = ext.join("|") === "jpeg|beach.jpeg|jpeg-exports|jpeg_vs_png.md" && word.join("|") === "jpeg|jpeg-exports|jpeg_vs_png.md|beach.jpeg"
+    && run(".invoice", found).map(x => x.title).join() === titles.join()
+  console.log((ok10 ? "ok  " : "FAIL") + "  \".jpeg\" puts .jpeg files first, \". jpeg\" doesn't → " + ext.join(" | ")); if (!ok10) fails++ }
 
 // browsing files by path, against a sample folder
 { const home = "/home/u"
