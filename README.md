@@ -74,8 +74,6 @@ Put your settings in `~/.config/omarchy/extensions/commandbar.json`. They overri
 }
 ```
 
-If you set your own `"providers"` list, add `"files"`, `"url"` and `"generate"` to it to get the features added in 1.4.0.
-
 > [!WARNING]
 > `ai` starts your Omarchy agent with its auto-approve setting, so the agent runs commands without asking. The row says so before you press Enter.
 
