@@ -204,22 +204,6 @@ function sha256(bytes) {
   return hex(h, false)
 }
 
-// ---------------------------------------------------------------- uuid
-
-// A version 4 UUID. Math.random is fine for an identifier, not for a secret.
-function uuid(random) {
-  var r = random || Math.random
-  var s = ""
-  for (var i = 0; i < 32; i++) {
-    var n = Math.floor(r() * 16)
-    if (i === 12) n = 4
-    else if (i === 16) n = 8 + (n & 3)
-    s += n.toString(16)
-    if (i === 7 || i === 11 || i === 15 || i === 19) s += "-"
-  }
-  return s
-}
-
 // ---------------------------------------------------------------- provider
 
 var HASHES = { md5: ["MD5", md5], sha1: ["SHA-1", sha1], sha256: ["SHA-256", sha256] }
@@ -258,7 +242,11 @@ var provider = {
     if ((ctx.keywords || []).indexOf(word) !== -1) return []
 
     if ((word === "uuid" || word === "guid") && !text.trim()) {
-      if (!held.id) held.id = uuid()
+      // ctx.uuid comes from the kernel's secure generator (services/Uuids.qml).
+      // Taking it asks for the next, so typing uuid again gives a new one; the
+      // help preview, which can't ask, leaves it for the real query.
+      if (!held.id && ctx.uuid && ctx.requestUuid) { held.id = ctx.uuid; ctx.requestUuid() }
+      if (!held.id) return [{ title: "Generating a UUID…", subtitle: "Random UUID (version 4)", score: 40, copy: "" }]
       return [answer(held.id, "Random UUID (version 4)", 95)]
     }
 

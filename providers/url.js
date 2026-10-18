@@ -6,11 +6,11 @@
 //
 //   example.com · localhost:3000 · https://omarchy.org/news
 
-// Common domain endings. File extensions that are also country domains
-// (.sh, .md, .py, .rs, .js, .pl, .cc, .ly) are left out so a file name isn't
-// taken for a site.
-var TLDS = ("com net org io dev app ai co me gg xyz info biz edu gov mil int eu asia " +
-            "uk de fr nl es it se no fi dk ch at be cz ie pt gr ru ua jp cn kr in lk au nz ca us br mx ar za ng ke " +
+// Common domain endings. File extensions that are also domains (.sh, .md,
+// .py, .rs, .js, .pl, .cc, .ly, .ai, .in, .co) are left out so a file name
+// like logo.ai or Makefile.in isn't taken for a site.
+var TLDS = ("com net org io dev app me gg xyz info biz edu gov mil int eu asia " +
+            "uk de fr nl es it se no fi dk ch at be cz ie pt gr ru ua jp cn kr lk au nz ca us br mx ar za ng ke " +
             "tv fm to site online tech blog page link news store shop cloud wiki social").split(" ")
 
 var LOCAL = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|[a-z0-9-]+\.localhost|[a-z0-9-]+\.local)(:\d{1,5})?([\/?#]\S*)?$/i

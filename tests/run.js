@@ -37,7 +37,10 @@ const windows = [
 ]
 let requested = 0
 let openWindows = []   // the app tests run with nothing open; the window tests switch these on
-function q(query) { return Engine.run(query, config, { rates, zones, now, ratesStatus: "", emojis, processes, apps, windows: openWindows, launches, requestProcesses: () => requested++ }) }
+// Stands in for services/Uuids.qml: one UUID ready, taking it makes the next.
+let nextUuid = require("crypto").randomUUID()
+function q(query) { return Engine.run(query, config, { rates, zones, now, ratesStatus: "", emojis, processes, apps, windows: openWindows, launches, requestProcesses: () => requested++,
+                                                       uuid: nextUuid, requestUuid: () => { nextUuid = require("crypto").randomUUID() } }) }
 function expect(query, want) {
   const rows = q(query)
   const top = rows[0] ? rows[0].title : "(none)"
@@ -312,7 +315,11 @@ console.log((out === "it's; rm -rf ~" ? "ok  " : "FAIL") + "  shell quoting → 
 
 // web addresses
 expect("github.com", "Open github.com"); expect("localhost:3000", "Open localhost:3000"); expect("https://omarchy.org/news", "Open omarchy.org/news")
-expect("www.example.co.uk/a?b=1", "Open www.example.co.uk/a?b=1"); expect("192.168.1.1:8080", "Open 192.168.1.1:8080")
+expect("www.example.co.uk/a?b=1", "Open www.example.co.uk/a?b=1"); expect("logo.ai", null); expect("Makefile.in", null)
+{ const r = Engine.run(".unit", { providers: ["commands", "units"] }, {})
+  const ok = r.some(x => x.title === "Convert units")
+  console.log((ok ? "ok  " : "FAIL") + "  with files off, paths and dot words aren't held back"); if (!ok) fails++ }
+ expect("192.168.1.1:8080", "Open 192.168.1.1:8080")
 expect("readme.md", null); expect("script.sh", null); expect("e.g", null); expect("5.5", null); expect("v1.2", null)
 expect("file:///etc/passwd", null); expect("javascript:alert(1)", null); expect("github.com is down", null)
 expect("main.cc", null); expect("script.pl", null); expect("1.2.3.4", null); expect("1.2.3.4:8080", "Open 1.2.3.4:8080"); expect("10.0.0.1", "Open 10.0.0.1"); expect("300.1.1.1:80", null)
@@ -344,6 +351,12 @@ expect("urldecode %E0%A4%A", "Not valid URL encoding"); expect("sha256", /^Type 
 { const a = q("uuid")[0].title, b = q("uuid")[0].title, c = (q("u"), q("uuid")[0].title)
   const ok = a === b && c !== a
   console.log((ok ? "ok  " : "FAIL") + "  a refresh keeps the uuid, typing it again makes a new one"); if (!ok) fails++ }
+{ const r = Engine.run("guid", config, {})
+  const ok = r.some(x => x.title === "Generating a UUID…") && r.every(x => !/^[0-9a-f]{8}-/.test(x.copy || ""))
+  console.log((ok ? "ok  " : "FAIL") + "  without the kernel's UUID nothing made up is shown"); if (!ok) fails++ }
+{ const id = require("fs").readFileSync("/proc/sys/kernel/random/uuid", "utf8").trim()
+  const ok = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id)
+  console.log((ok ? "ok  " : "FAIL") + "  the kernel's UUID is the form services/Uuids.qml accepts"); if (!ok) fails++ }
 expect("constructor", null); expect("constructor x", null)
 { const r = Engine.run("sha256 x", { providers: ["commands", "generate"], commands: [{ keyword: "sha256", title: "Mine", open: "https://example.com/?q={q}" }] }, {})
   const ok = r.length === 1 && r[0].provider === "commands"
@@ -452,6 +465,26 @@ expect("constructor", null); expect("constructor x", null)
   fs.rmSync(dir, { recursive: true }); fs.symlinkSync(home, dir)
   check("a symlinked directory is refused", read("last-query") === null)
   check("no temporary files are left behind", fs.readdirSync(home).every(f => !f.endsWith(".tmp")))
+  fs.rmSync(home, { recursive: true, force: true }) }
+
+// The fd scripts in services/Files.qml, run the way the shell runs them.
+{ const fs = require("fs"), os = require("os"), { spawnSync } = require("child_process")
+  const qml = fs.readFileSync(P + "services/Files.qml", "utf8")
+  const script = name => eval(qml.match(new RegExp("readonly property string " + name + ":\\n((?:    .*\\n)+?)(?=  //|\\n)"))[1])
+  const home = fs.mkdtempSync(os.tmpdir() + "/commandbar-files-")
+  const run = (name, env) => spawnSync("bash", ["-c", script(name)], { env: Object.assign({}, process.env, { HOME: home }, env) })
+  const lines = r => r.stdout.toString().split("\n").filter(l => l)
+  const check = (name, ok) => { console.log((ok ? "ok  " : "FAIL") + "  files: " + name); if (!ok) fails++ }
+  fs.mkdirSync(home + "/Docs"); fs.writeFileSync(home + "/Docs/Tax Return 2024.PDF", ""); fs.writeFileSync(home + "/Docs/.hidden", "")
+  fs.mkdirSync(home + "/a\n/elsewhere", { recursive: true }); fs.writeFileSync(home + "/a\n/elsewhere/secret.pdf", "")
+
+  check("every word has to be in the name, any case", JSON.stringify(lines(run("searchScript", { COMMANDBAR_WORDS: "return\ntax" }))) === JSON.stringify([home + "/Docs/Tax Return 2024.PDF"]))
+  check("a newline in a folder's name can't pass off another path", lines(run("searchScript", { COMMANDBAR_WORDS: "secret" })).length === 0)
+  const docs = run("browseScript", { COMMANDBAR_DIR: home + "/Docs/" })
+  check("a folder lists its entries, hidden ones too", docs.status === 0 && JSON.stringify(lines(docs).sort()) === JSON.stringify([home + "/Docs/.hidden", home + "/Docs/Tax Return 2024.PDF"]))
+  check("a newline in a name is dropped when browsing", lines(run("browseScript", { COMMANDBAR_DIR: home + "/" })).every(l => l.indexOf(home + "/a") !== 0))
+  check("a missing folder exits 1", run("browseScript", { COMMANDBAR_DIR: home + "/nope/" }).status === 1)
+  check("neither the words nor the folder are in the arguments", !/tax|Docs/i.test(script("searchScript") + script("browseScript")))
   fs.rmSync(home, { recursive: true, force: true }) }
 
 console.log(fails ? fails + " FAILED" : "all passed"); process.exit(fails ? 1 : 0)

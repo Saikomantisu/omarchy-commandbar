@@ -70,7 +70,7 @@ var provider = {
                  { q: "w term", hint: "Only your terminal windows" }] }
   ],
   match: function(query, ctx) {
-    if (Files.isPath(query)) return []   // a path being browsed
+    if (ctx.filesOn && Files.isPath(query)) return []   // a path being browsed
     var list = (ctx.windows || []).filter(function(w) {
       // Only addresses Hyprland gave us ever reach the dispatcher.
       return /^0x[0-9a-f]+$/i.test(w.address) && w.focus !== 0

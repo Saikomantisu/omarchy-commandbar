@@ -152,7 +152,9 @@ Item {
       requestProcesses: processes.request,
       requestRates: rates.refresh,
       requestFiles: files.request,
-      requestFolder: files.browse
+      requestFolder: files.browse,
+      uuid: uuids.next,
+      requestUuid: uuids.request
     })
     root.mode = Engine.mode(input.text, root.config)
     if (root.selectedIndex >= root.rows.length) root.selectedIndex = Math.max(0, root.rows.length - 1)
@@ -199,7 +201,22 @@ Item {
     if (row.complete && !row.copy) { root.complete(row); return }
     if (!row.copy) return
     root.finish()
-    Quickshell.execDetached(["bash", "-c", "printf %s " + Util.shellQuote(row.copy) + " | wl-copy"])
+    copier.text = String(row.copy)
+    copier.stdinEnabled = true
+    copier.running = true
+  }
+
+  // What's copied (a decoded base64 secret, a file's path) is piped to
+  // wl-copy's stdin, never put in its arguments, so it can't be read from
+  // /proc/<pid>/cmdline. wl-copy reads it, then serves it in the background.
+  Process {
+    id: copier
+    property string text: ""
+    command: ["wl-copy"]
+    onStarted: {
+      copier.write(copier.text)
+      copier.stdinEnabled = false
+    }
   }
 
   // What Enter does to a row, for the footer: "Open", "Switch", "Copy"…
@@ -244,6 +261,7 @@ Item {
   Apps { id: apps; cache: cacheFiles; onUpdated: root.refresh() }
   Windows { id: windows; onUpdated: root.refresh() }
   Files { id: files; onUpdated: root.refresh() }
+  Uuids { id: uuids; onUpdated: root.refresh() }
 
   // ---------------------------------------------------------------- config
 

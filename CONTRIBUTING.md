@@ -46,7 +46,7 @@ var provider = {
 }
 ```
 
-A result can include `run: { kind: "open" | "run", target }` to open or run something on Enter, `group` to list it under its own heading instead of the feature's name, and `fallback: true` to show it only when no other result does. `ctx.settings` is the provider's section of the config. `ctx` also has `rates`, `zones`, `localZone`, `emojis`, `processes`, `files`, `folder`, `home`, `now()`, `format(n)` and `plain(n)`.
+A result can include `run: { kind: "open" | "run", target }` to open or run something on Enter, `group` to list it under its own heading instead of the feature's name, and `fallback: true` to show it only when no other result does. `ctx.settings` is the provider's section of the config. `ctx` also has `rates`, `zones`, `localZone`, `emojis`, `processes`, `files`, `folder`, `home`, `uuid`, `now()`, `format(n)` and `plain(n)`.
 
 To enable it, import it in [`providers/index.js`](providers/index.js), add it to the list there, and add its `id` to `"providers"` in the config.
 
@@ -57,7 +57,8 @@ All of these come with Omarchy:
 - `curl`: exchange rates
 - `wl-copy` (from `wl-clipboard`): copying results
 - `xdg-open`: web keyword commands, web addresses and opening files
-- `fd`: searching and browsing files
+- `fd` and `awk`: searching and browsing files
+- `head`: reading a random UUID from the kernel
 - `ps` and `kill` (from `procps-ng`): the process list
 - `date` and `timedatectl`: time zones
 - `uwsm-app` and `gtk-launch`: opening apps, the same way Omarchy's own launcher does

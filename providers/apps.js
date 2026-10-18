@@ -65,7 +65,7 @@ var provider = {
   ],
   match: function(query, ctx) {
     if (/^\s*w\s/i.test(query)) return []   // "w …" is the windows-only mode
-    if (Files.isPath(query)) return []   // a path being browsed
+    if (ctx.filesOn && Files.isPath(query)) return []   // a path being browsed
     var q = query.trim().toLowerCase().replace(/\s+/g, " ")
     var apps = ctx.apps || []
     if (!q || apps.length === 0) return []
