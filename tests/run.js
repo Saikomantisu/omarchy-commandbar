@@ -487,4 +487,18 @@ expect("constructor", null); expect("constructor x", null)
   check("neither the words nor the folder are in the arguments", !/tax|Docs/i.test(script("searchScript") + script("browseScript")))
   fs.rmSync(home, { recursive: true, force: true }) }
 
+// A Text left on AutoText reads markup like <img src=…> in a folder name as rich text.
+{ const fs = require("fs")
+  const files = ["CommandBar.qml"].concat(fs.readdirSync(P + "ui").filter(f => f.endsWith(".qml")).map(f => "ui/" + f))
+  const loose = []
+  for (const file of files) {
+    const blocks = fs.readFileSync(P + file, "utf8").split(/^\s*Text \{$/m).slice(1).map(b => b.slice(0, b.search(/^\s*\}$/m)))
+    for (const b of blocks) {
+      const text = (b.match(/^\s*text: (.*)$/m) || [])[1]
+      if (text && !/^"[^"]*"$/.test(text) && !/textFormat: Text\.PlainText/.test(b)) loose.push(file + ": " + text)
+    }
+  }
+  console.log((loose.length ? "FAIL" : "ok  ") + "  qml: every Text showing data is plain text" + (loose.length ? "   " + loose.join(", ") : ""))
+  if (loose.length) fails++ }
+
 console.log(fails ? fails + " FAILED" : "all passed"); process.exit(fails ? 1 : 0)

@@ -138,6 +138,7 @@ Item {
 
       Text {
         anchors.verticalCenter: parent.verticalCenter
+        textFormat: Text.PlainText
         text: field.bar.mode ? (field.bar.mode.icon || "") : ""
         visible: text !== ""
         color: field.bar.selectedText
@@ -147,6 +148,7 @@ Item {
 
       Text {
         anchors.verticalCenter: parent.verticalCenter
+        textFormat: Text.PlainText
         text: field.bar.mode ? field.bar.mode.label : ""
         color: field.bar.selectedText
         font.family: field.bar.fontFamily

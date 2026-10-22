@@ -29,6 +29,7 @@ Item {
     anchors.top: parent.top
     height: rowItem.bar.sectionHeight
     verticalAlignment: Text.AlignVCenter
+    textFormat: Text.PlainText
     text: rowItem.section
     color: rowItem.bar.foreground
     opacity: 0.5

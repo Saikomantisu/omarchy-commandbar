@@ -30,6 +30,7 @@ Rectangle {
   Text {
     visible: !tileRoot.hasImage
     anchors.centerIn: parent
+    textFormat: Text.PlainText
     text: tileRoot.glyph
     color: tileRoot.selected ? tileRoot.selectedText : tileRoot.foreground
     opacity: tileRoot.selected ? 1 : 0.8

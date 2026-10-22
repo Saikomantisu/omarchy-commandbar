@@ -18,6 +18,7 @@ Rectangle {
   Text {
     id: capText
     anchors.centerIn: parent
+    textFormat: Text.PlainText
     text: cap.label
     color: cap.foreground
     opacity: 0.8

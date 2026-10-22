@@ -28,6 +28,7 @@ Item {
 
     Text {
       anchors.verticalCenter: parent.verticalCenter
+      textFormat: Text.PlainText
       text: footer.row ? (footer.row.help ? "Help" : (footer.row.group || footer.row.providerName || "")) : ""
       color: footer.bar.foreground
       opacity: 0.5
@@ -72,6 +73,7 @@ Item {
       id: primary
       visible: text !== ""
       anchors.verticalCenter: parent.verticalCenter
+      textFormat: Text.PlainText
       text: footer.bar.actionLabel(footer.row)
       color: footer.bar.foreground
       opacity: 0.85
