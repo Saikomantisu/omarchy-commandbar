@@ -65,6 +65,7 @@ var provider = {
   ],
   match: function(query, ctx) {
     if (/^\s*w\s/i.test(query)) return []   // "w …" is the windows-only mode
+    if (/^\s*b\s/i.test(query)) return []   // "b …" is the bookmarks-only mode
     if (ctx.filesOn && Files.isPath(query)) return []   // a path being browsed
     var q = query.trim().toLowerCase().replace(/\s+/g, " ")
     var apps = ctx.apps || []

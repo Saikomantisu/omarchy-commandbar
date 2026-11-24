@@ -46,7 +46,7 @@ var provider = {
 }
 ```
 
-A result can include `run: { kind: "open" | "run", target }` to open or run something on Enter, `group` to list it under its own heading instead of the feature's name, and `fallback: true` to show it only when no other result does. `ctx.settings` is the provider's section of the config. `ctx` also has `rates`, `zones`, `localZone`, `emojis`, `processes`, `files`, `folder`, `home`, `uuid`, `now()`, `format(n)` and `plain(n)`.
+A result can include `run: { kind: "open" | "run", target }` to open or run something on Enter, `group` to list it under its own heading instead of the feature's name, and `fallback: true` to show it only when no other result does. `ctx.settings` is the provider's section of the config. `ctx` also has `rates`, `zones`, `localZone`, `emojis`, `processes`, `bookmarks`, `browserName`, `files`, `folder`, `home`, `uuid`, `now()`, `format(n)` and `plain(n)`.
 
 To enable it, import it in [`providers/index.js`](providers/index.js), add it to the list there, and add its `id` to `"providers"` in the config.
 
@@ -64,7 +64,8 @@ All of these come with Omarchy:
 - `uwsm-app` and `gtk-launch`: opening apps, the same way Omarchy's own launcher does
 - `hyprctl`: setting the hotkey, and listing and focusing windows
 - `notify-send`: warning when the hotkey is already taken
-- `python3`: reading and writing the cache files safely (`bin/commandbar-cache`)
+- `python3`: reading and writing the cache files safely (`bin/commandbar-cache`), and reading browser bookmarks (`bin/commandbar-bookmarks`)
+- `omarchy-cmd-default-browser`, or `xdg-settings` (from `xdg-utils`) when it's missing: finding the default browser for bookmarks
 - `omarchy-menu-emoji-insert` and Omarchy's `emojis.json`: emoji
 - `omarchy-default-agent`, `omarchy-cmd-missing`, `omarchy-agent-prompt` and `omarchy-agent --pick`: asking your agent (`bin/commandbar-agent`)
 

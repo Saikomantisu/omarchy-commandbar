@@ -76,6 +76,7 @@ var provider = {
       return /^0x[0-9a-f]+$/i.test(w.address) && w.focus !== 0
     })
     var apps = ctx.apps || []
+    if (/^\s*b\s/i.test(query)) return []   // "b …" is the bookmarks-only mode
     var mode = query.match(/^\s*w\s(.*)$/i)
     var q = (mode ? mode[1] : query).trim().toLowerCase().replace(/\s+/g, " ")
     var qw = Apps.words(q)

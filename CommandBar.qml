@@ -98,6 +98,7 @@ Item {
     root.lastPointer = Qt.point(-1, -1)
     zones.refresh()
     windows.refresh()
+    bookmarks.refresh()   // new bookmarks, or a different default browser
     files.forget()   // files may have come and gone since
     agent.refresh()   // picked up when it changes, even after the shell started
     root.recompute()   // the kept query may be time-sensitive ("time", "3pm to tokyo")
@@ -144,6 +145,8 @@ Item {
       processes: processes.list,
       apps: apps.list,
       windows: windows.list,
+      bookmarks: bookmarks.list,
+      browserName: bookmarks.browserName,
       launches: apps.launches,
       agent: agent.name,
       files: files.result,
@@ -260,6 +263,7 @@ Item {
   Processes { id: processes; onUpdated: root.refresh() }
   Apps { id: apps; cache: cacheFiles; onUpdated: root.refresh() }
   Windows { id: windows; onUpdated: root.refresh() }
+  Bookmarks { id: bookmarks; helper: root.pluginDir + "/bin/commandbar-bookmarks"; config: root.config; onUpdated: root.refresh() }
   Files { id: files; onUpdated: root.refresh() }
   Uuids { id: uuids; onUpdated: root.refresh() }
 
