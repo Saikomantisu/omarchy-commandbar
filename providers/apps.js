@@ -1,5 +1,6 @@
 .pragma library
 .import "files.js" as Files
+.import "bookmarks.js" as Bookmarks
 
 // Launch installed applications. CommandBar.qml keeps a snapshot of the
 // visible desktop entries in ctx.apps:
@@ -65,7 +66,7 @@ var provider = {
   ],
   match: function(query, ctx) {
     if (/^\s*w\s/i.test(query)) return []   // "w …" is the windows-only mode
-    if (/^\s*b\s/i.test(query)) return []   // "b …" is the bookmarks-only mode
+    if (Bookmarks.isMode(query, ctx)) return []   // "b …" is the bookmarks-only mode
     if (ctx.filesOn && Files.isPath(query)) return []   // a path being browsed
     var q = query.trim().toLowerCase().replace(/\s+/g, " ")
     var apps = ctx.apps || []

@@ -30,6 +30,7 @@ import contextlib
 import fcntl
 import json
 import os
+import shlex
 import shutil
 import sqlite3
 import subprocess
@@ -69,17 +70,21 @@ CHROMIUM = {
     "microsoft-edge-dev": ("Edge Dev", "microsoft-edge-dev"),
     "helium": ("Helium", "net.imput.helium"),
 }
+# Desktop id → (name, [profile roots]). The first root with a profiles.ini
+# wins: the XDG folder that current Zen and new Firefox 147+ installs use, then
+# the older dot folder in the home folder.
+FX = ("mozilla/firefox", ".mozilla/firefox")
 FIREFOX = {
-    "firefox": ("Firefox", ".mozilla/firefox"),
-    "firefox-developer-edition": ("Firefox Developer Edition", ".mozilla/firefox"),
-    "firefox-nightly": ("Firefox Nightly", ".mozilla/firefox"),
-    "org.mozilla.firefox": ("Firefox", ".mozilla/firefox"),
-    "librewolf": ("LibreWolf", ".librewolf"),
-    "zen": ("Zen", ".zen"),
-    "zen-browser": ("Zen", ".zen"),
-    "app.zen_browser.zen": ("Zen", ".zen"),
-    "waterfox": ("Waterfox", ".waterfox"),
-    "floorp": ("Floorp", ".floorp"),
+    "firefox": ("Firefox", FX),
+    "firefox-developer-edition": ("Firefox Developer Edition", FX),
+    "firefox-nightly": ("Firefox Nightly", FX),
+    "org.mozilla.firefox": ("Firefox", FX),
+    "librewolf": ("LibreWolf", ("librewolf", ".librewolf")),
+    "zen": ("Zen", ("zen", ".zen")),
+    "zen-browser": ("Zen", ("zen", ".zen")),
+    "app.zen_browser.zen": ("Zen", ("zen", ".zen")),
+    "waterfox": ("Waterfox", ("waterfox", ".waterfox")),
+    "floorp": ("Floorp", ("floorp", ".floorp")),
 }
 
 
@@ -104,10 +109,26 @@ def exec_of(desktop_id):
             with open(path, encoding="utf-8", errors="replace") as f:
                 for line in f:
                     if line.startswith("Exec="):
-                        return os.path.basename(line[5:].split()[0]) if line[5:].split() else ""
+                        return command_of(line[5:])
         except OSError:
             continue
     return ""
+
+
+def command_of(exec_line):
+    """The program an Exec= line runs, past "env" and VAR=value words:
+    "env FOO=1 brave-browser %U" → "brave-browser"."""
+    try:
+        words = shlex.split(exec_line)
+    except ValueError:
+        words = exec_line.split()
+    if words and os.path.basename(words[0]) == "env":
+        words = words[1:]
+        while words and words[0].startswith("-"):   # env's own options
+            words = words[2:] if words[0] in ("-u", "--unset", "-C", "--chdir") else words[1:]
+    while words and "=" in words[0] and not words[0].startswith(("/", "=")):
+        words = words[1:]
+    return os.path.basename(words[0]) if words else ""
 
 
 def resolve(desktop_id):
@@ -122,8 +143,10 @@ def resolve(desktop_id):
             name, rel = CHROMIUM[k]
             return name, "chromium", os.path.join(CONFIG, rel)
         if k in FIREFOX:
-            name, rel = FIREFOX[k]
-            return name, "firefox", os.path.join(HOME, rel)
+            name, (xdg, legacy) = FIREFOX[k]
+            roots = [os.path.join(CONFIG, xdg), os.path.join(HOME, legacy)]
+            found = [r for r in roots if os.path.isfile(os.path.join(r, "profiles.ini"))]
+            return name, "firefox", (found or roots)[0]
     return None
 
 

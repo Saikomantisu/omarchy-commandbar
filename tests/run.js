@@ -529,7 +529,14 @@ expect("constructor", null); expect("constructor x", null)
   const offq = query => Engine.run(query, off, { bookmarks: marks, browserName: "Brave", apps, windows: openWindows, now })
   check("inGlobalSearch: false keeps them out of normal search", offq("wiki").every(r => r.provider !== "bookmarks"))
   check("inGlobalSearch: false still lists them after \"b \"", offq("b wiki")[0].title === "Team Wiki")
-  check("inGlobalSearch is on by default", config.bookmarks.inGlobalSearch === true) }
+  check("inGlobalSearch is on by default", config.bookmarks.inGlobalSearch === true)
+  const without = Object.assign({}, config, { providers: config.providers.filter(p => p !== "bookmarks") })
+  check("with bookmarks off, \"b …\" doesn't hide apps", Engine.run("b brave", without, { apps, windows: openWindows, now }).some(r => r.provider === "apps")
+    && Engine.mode("b brave", without) === null)
+  const bcmd = Object.assign({}, config, { commands: config.commands.concat([{ keyword: "b", title: "Search Bing", open: "https://www.bing.com/search?q={q}" }]) })
+  const bc = Engine.run("b wiki", bcmd, { bookmarks: marks, browserName: "Brave", apps, windows: openWindows, now })
+  check("your own \"b\" keyword wins over the mode", Engine.mode("b wiki", bcmd).label === "Search Bing"
+    && bc[0].title === "Search Bing: wiki" && bc.every(r => r.provider !== "bookmarks")) }
 
 // bin/commandbar-bookmarks: reads Chromium and Firefox profiles from a scratch home
 { const fs = require("fs"), os = require("os"), { spawnSync } = require("child_process")
@@ -585,6 +592,30 @@ c.commit()`, prof + "/places.sqlite"])
   check("Firefox: the copy is removed from the cache folder", copies().length === 0)
   check("Firefox: nothing written outside the cache folder", fs.readdirSync(prof).join() === "places.sqlite")
 
+  // current Zen and new Firefox 147+ installs keep profiles under ~/.config
+  const places = (db, title, url) => spawnSync("python3", ["-c", `import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.executescript("""
+CREATE TABLE moz_places (id INTEGER PRIMARY KEY, url TEXT);
+CREATE TABLE moz_bookmarks (id INTEGER PRIMARY KEY, type INTEGER, fk INTEGER, parent INTEGER, title TEXT, dateAdded INTEGER);
+INSERT INTO moz_bookmarks VALUES (10, 2, NULL, 1, 'toolbar', 0);
+""")
+c.execute("INSERT INTO moz_places VALUES (1, ?)", (sys.argv[3],))
+c.execute("INSERT INTO moz_bookmarks VALUES (11, 1, 1, 10, ?, 1)", (sys.argv[2],))
+c.commit()`, db, title, url])
+  const zen = home + "/.config/zen", zprof = zen + "/xyz.Default (release)"
+  fs.mkdirSync(zprof, { recursive: true })
+  fs.writeFileSync(zen + "/profiles.ini", "[Profile0]\nName=Default (release)\nIsRelative=1\nPath=xyz.Default (release)\nDefault=1\n")
+  places(zprof + "/places.sqlite", "Zen docs", "https://docs.zen-browser.app/")
+  check("Zen: profiles under ~/.config/zen", (r => r.name === "Zen" && r.bookmarks.length === 1 && r.bookmarks[0].title === "Zen docs")(read("zen.desktop")))
+  const xff = home + "/.config/mozilla/firefox", xprof = xff + "/new.default-release"
+  fs.mkdirSync(xprof, { recursive: true })
+  fs.writeFileSync(xff + "/profiles.ini", "[Profile0]\nName=default-release\nIsRelative=1\nPath=new.default-release\nDefault=1\n")
+  places(xprof + "/places.sqlite", "New Firefox", "https://new.mozilla.org/")
+  check("Firefox: ~/.config/mozilla/firefox comes before ~/.mozilla/firefox", read("firefox.desktop").bookmarks.map(x => x.title).join() === "New Firefox")
+  fs.rmSync(home + "/.config/mozilla", { recursive: true })
+  check("Firefox: ~/.mozilla/firefox when there's no XDG profile folder", read("firefox.desktop").bookmarks.map(x => x.title).join() === "Mozilla")
+
   fs.writeFileSync(prof + "/places.sqlite", "this is not a database")
   const broken = run("firefox.desktop"), bj = JSON.parse(broken.stdout.toString())
   check("Firefox: an unreadable database lists nothing, without failing", broken.status === 0 && bj.bookmarks.length === 0)
@@ -601,6 +632,8 @@ c.commit()`, prof + "/places.sqlite"])
   fs.mkdirSync(home + "/share/applications", { recursive: true })
   fs.writeFileSync(home + "/share/applications/my-browser.desktop", "[Desktop Entry]\nExec=brave-browser %U\n")
   check("a wrapper entry is followed to its browser", read("my-browser.desktop").name === "Brave")
+  fs.writeFileSync(home + "/share/applications/env-browser.desktop", "[Desktop Entry]\nExec=env FOO=1 BAR=\"a b\" brave-browser %U\n")
+  check("an entry run through env is followed to its browser", read("env-browser.desktop").name === "Brave")
   check("an unknown browser lists nothing", (r => r.name === "" && r.bookmarks.length === 0)(read("lynx.desktop")))
   fs.rmSync(cacheDir, { recursive: true }); fs.writeFileSync(cacheDir, "a file where the cache folder should be")
   check("an unusable cache folder still lists bookmarks", (r => r.status === 0 && JSON.parse(r.stdout).bookmarks.length === 5)(run("brave-browser.desktop")))

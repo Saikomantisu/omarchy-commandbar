@@ -17,6 +17,13 @@ var LIMIT = 20          // in "b " mode
 var MIXED_LIMIT = 4     // among everything else
 var MODE = /^\s*b\s(.*)$/i
 
+// Whether "b …" is the bookmarks-only mode: the feature is on and none of your
+// own keyword commands is called "b" (yours wins). Apps and windows stand
+// aside for it.
+function isMode(query, ctx) {
+  return !!(ctx && ctx.bookmarksOn && (ctx.keywords || []).indexOf("b") === -1 && MODE.test(query))
+}
+
 // Score `needle` as an in-order subsequence of `hay` (both lower case);
 // 0 when it isn't one.
 function fuzzy(needle, hay) {
@@ -101,6 +108,7 @@ var provider = {
     if (ctx.filesOn && Files.isPath(query)) return []
     var list = ctx.bookmarks || []
     var browser = ctx.browserName || ""
+    if (MODE.test(query) && !isMode(query, ctx)) return []   // your own "b" command
     var mode = query.match(MODE)
     if (mode) {
       var q = mode[1].trim()
