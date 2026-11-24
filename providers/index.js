@@ -12,6 +12,7 @@
 .import "files.js" as Files
 .import "url.js" as Url
 .import "generate.js" as Generate
+.import "bookmarks.js" as Bookmarks
 
 // Every provider the bar knows about. To add a feature: write providers/<name>.js
 // exporting `var provider = { id, name, icon, match(query, ctx) }`, import it
@@ -29,5 +30,6 @@ var all = [
   Ai.provider,
   Files.provider,
   Url.provider,
-  Generate.provider
+  Generate.provider,
+  Bookmarks.provider
 ]

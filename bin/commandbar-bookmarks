@@ -1,0 +1,382 @@
+#!/usr/bin/env python3
+"""Print the default browser's bookmarks as JSON for the Command Bar.
+
+The browser is the one links open in: Omarchy's omarchy-cmd-default-browser,
+or xdg-settings when that isn't there. A desktop id can be given instead
+("brave-browser.desktop"), which the bookmarks.browser setting passes.
+
+Chromium-family browsers (Brave, Chrome, Chromium, Vivaldi, Edge, Helium)
+keep a Bookmarks JSON file per profile; Firefox-family ones (Firefox,
+LibreWolf, Zen, Waterfox, Floorp) keep them in places.sqlite, which is copied
+before reading because the running browser holds it locked. The copy goes in a
+private folder under ~/.cache/omarchy-commandbar/, the only place the bar
+writes, and is removed straight after, even when reading it fails.
+
+The bar runs this each time it opens, so the result is cached in
+~/.cache/omarchy-commandbar/bookmarks.json (through bin/commandbar-cache's
+safe writer) with the size and modification time of every file it was read
+from. While none of them change, the cached list is printed and no browser
+file is opened or copied.
+
+Anything that goes wrong (no browser, no profiles, unreadable files) prints an
+empty list, so the bar carries on without bookmarks.
+
+Output: {"browser": "<desktop id>", "name": "Brave", "bookmarks":
+         [{"title", "url", "folder", "profile"}]}
+Only http(s) bookmarks are listed, each address once.
+"""
+
+import contextlib
+import fcntl
+import json
+import os
+import shlex
+import shutil
+import sqlite3
+import subprocess
+import sys
+import tempfile
+import time
+from configparser import ConfigParser
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+
+HOME = os.path.expanduser("~")
+CACHE = os.path.join(HOME, ".cache", "omarchy-commandbar")
+CONFIG = os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config")
+LIMIT = 20000
+CACHE_NAME = "bookmarks.json"
+CACHE_VERSION = 1
+STALE_COPY = 600   # seconds before a leftover places.sqlite copy is swept
+
+# Desktop id (without .desktop) → (name, kind, profile root)
+CHROMIUM = {
+    "brave-browser": ("Brave", "BraveSoftware/Brave-Browser"),
+    "brave-browser-beta": ("Brave Beta", "BraveSoftware/Brave-Browser-Beta"),
+    "brave-browser-nightly": ("Brave Nightly", "BraveSoftware/Brave-Browser-Nightly"),
+    "brave-origin-beta": ("Brave Origin", "BraveSoftware/Brave-Origin-Beta"),
+    "com.brave.Browser": ("Brave", "BraveSoftware/Brave-Browser"),
+    "chromium": ("Chromium", "chromium"),
+    "org.chromium.Chromium": ("Chromium", "chromium"),
+    "google-chrome": ("Chrome", "google-chrome"),
+    "google-chrome-beta": ("Chrome Beta", "google-chrome-beta"),
+    "google-chrome-unstable": ("Chrome Dev", "google-chrome-unstable"),
+    "com.google.Chrome": ("Chrome", "google-chrome"),
+    "vivaldi": ("Vivaldi", "vivaldi"),
+    "vivaldi-stable": ("Vivaldi", "vivaldi"),
+    "vivaldi-snapshot": ("Vivaldi Snapshot", "vivaldi-snapshot"),
+    "microsoft-edge": ("Edge", "microsoft-edge"),
+    "microsoft-edge-beta": ("Edge Beta", "microsoft-edge-beta"),
+    "microsoft-edge-dev": ("Edge Dev", "microsoft-edge-dev"),
+    "helium": ("Helium", "net.imput.helium"),
+}
+# Desktop id → (name, [profile roots]). The first root with a profiles.ini
+# wins: the XDG folder that current Zen and new Firefox 147+ installs use, then
+# the older dot folder in the home folder.
+FX = ("mozilla/firefox", ".mozilla/firefox")
+FIREFOX = {
+    "firefox": ("Firefox", FX),
+    "firefox-developer-edition": ("Firefox Developer Edition", FX),
+    "firefox-nightly": ("Firefox Nightly", FX),
+    "org.mozilla.firefox": ("Firefox", FX),
+    "librewolf": ("LibreWolf", ("librewolf", ".librewolf")),
+    "zen": ("Zen", ("zen", ".zen")),
+    "zen-browser": ("Zen", ("zen", ".zen")),
+    "app.zen_browser.zen": ("Zen", ("zen", ".zen")),
+    "waterfox": ("Waterfox", ("waterfox", ".waterfox")),
+    "floorp": ("Floorp", ("floorp", ".floorp")),
+}
+
+
+def default_browser():
+    for cmd in (["omarchy-cmd-default-browser"], ["xdg-settings", "get", "default-web-browser"]):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=3).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if out:
+            return out.splitlines()[0]
+    return ""
+
+
+def exec_of(desktop_id):
+    """The command a desktop entry runs, for wrappers like omarchy-browser."""
+    dirs = [os.environ.get("XDG_DATA_HOME") or os.path.join(HOME, ".local/share")]
+    dirs += (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    for d in dirs:
+        path = os.path.join(d, "applications", desktop_id)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    if line.startswith("Exec="):
+                        return command_of(line[5:])
+        except OSError:
+            continue
+    return ""
+
+
+def command_of(exec_line):
+    """The program an Exec= line runs, past "env" and VAR=value words:
+    "env FOO=1 brave-browser %U" → "brave-browser"."""
+    try:
+        words = shlex.split(exec_line)
+    except ValueError:
+        words = exec_line.split()
+    if words and os.path.basename(words[0]) == "env":
+        words = words[1:]
+        while words and words[0].startswith("-"):   # env's own options
+            words = words[2:] if words[0] in ("-u", "--unset", "-C", "--chdir") else words[1:]
+    while words and "=" in words[0] and not words[0].startswith(("/", "=")):
+        words = words[1:]
+    return os.path.basename(words[0]) if words else ""
+
+
+def resolve(desktop_id):
+    """(name, kind, root) for a desktop id, or None."""
+    key = desktop_id[:-8] if desktop_id.endswith(".desktop") else desktop_id
+    candidates = [key, key.lower()]
+    ex = exec_of(key + ".desktop")
+    if ex:
+        candidates += [ex, ex.lower(), ex.replace("-stable", "")]
+    for k in candidates:
+        if k in CHROMIUM:
+            name, rel = CHROMIUM[k]
+            return name, "chromium", os.path.join(CONFIG, rel)
+        if k in FIREFOX:
+            name, (xdg, legacy) = FIREFOX[k]
+            roots = [os.path.join(CONFIG, xdg), os.path.join(HOME, legacy)]
+            found = [r for r in roots if os.path.isfile(os.path.join(r, "profiles.ini"))]
+            return name, "firefox", (found or roots)[0]
+    return None
+
+
+def chromium_profiles(root):
+    """[(profile folder, path to its Bookmarks file)], Default first."""
+    try:
+        profiles = sorted(os.listdir(root), key=lambda p: (p != "Default", p))
+    except OSError:
+        return []
+    out = []
+    for prof in profiles:
+        path = os.path.join(root, prof, "Bookmarks")
+        if os.path.isfile(path):
+            out.append((prof, path))
+    return out
+
+
+def chromium_bookmarks(root):
+    names = {}
+    try:
+        with open(os.path.join(root, "Local State"), encoding="utf-8") as f:
+            cache = json.load(f).get("profile", {}).get("info_cache", {})
+            names = {k: v.get("name", k) for k, v in cache.items()}
+    except (OSError, ValueError, AttributeError):
+        pass
+    out = []
+    for prof, path in chromium_profiles(root):
+        try:
+            with open(path, encoding="utf-8") as f:
+                roots = json.load(f).get("roots", {})
+        except (OSError, ValueError):
+            continue
+        label = names.get(prof, prof)
+
+        def walk(node, folder):
+            if node.get("type") == "url":
+                out.append({"title": node.get("name", ""), "url": node.get("url", ""),
+                            "folder": folder, "profile": label})
+            for child in node.get("children", []) or []:
+                sub = folder
+                if child.get("type") == "folder":
+                    sub = (folder + " / " if folder else "") + child.get("name", "")
+                walk(child, sub)
+
+        for key in ("bookmark_bar", "other", "synced"):
+            node = roots.get(key)
+            if isinstance(node, dict):
+                walk(node, "" if key == "bookmark_bar" else node.get("name", ""))
+    return out
+
+
+def firefox_profiles(root):
+    ini = ConfigParser(interpolation=None)
+    try:
+        ini.read(os.path.join(root, "profiles.ini"), encoding="utf-8")
+    except Exception:
+        return []
+    found = []
+    for section in ini.sections():
+        if not section.startswith("Profile"):
+            continue
+        path = ini.get(section, "Path", fallback="")
+        if not path:
+            continue
+        if ini.get(section, "IsRelative", fallback="1") == "1":
+            path = os.path.join(root, path)
+        default = ini.get(section, "Default", fallback="0") == "1"
+        found.append((not default, ini.get(section, "Name", fallback=os.path.basename(path)), path))
+    return [(n, p) for _, n, p in sorted(found)]
+
+
+def sweep_copies():
+    """Remove places.sqlite copies left behind by a run that was killed."""
+    try:
+        names = os.listdir(CACHE)
+    except OSError:
+        return
+    now = time.time()
+    for name in names:
+        path = os.path.join(CACHE, name)
+        try:
+            if (name.startswith("places-") and not os.path.islink(path)
+                    and os.path.isdir(path) and now - os.path.getmtime(path) > STALE_COPY):
+                shutil.rmtree(path, ignore_errors=True)
+        except OSError:
+            pass
+
+
+def firefox_bookmarks(root):
+    sweep_copies()
+    out = []
+    for label, prof in firefox_profiles(root):
+        db = os.path.join(prof, "places.sqlite")
+        if not os.path.isfile(db):
+            continue
+        try:
+            os.makedirs(CACHE, mode=0o700, exist_ok=True)
+            tmp = tempfile.mkdtemp(prefix="places-", dir=CACHE)   # 0700
+        except OSError:
+            continue
+        try:
+            for suffix in ("", "-wal"):
+                if os.path.isfile(db + suffix):
+                    shutil.copy2(db + suffix, os.path.join(tmp, "places.sqlite" + suffix))
+            with contextlib.closing(sqlite3.connect(os.path.join(tmp, "places.sqlite"))) as con:
+                rows = con.execute("""
+                    SELECT b.title, p.url, COALESCE(f.title, '')
+                    FROM moz_bookmarks b
+                    JOIN moz_places p ON p.id = b.fk
+                    LEFT JOIN moz_bookmarks f ON f.id = b.parent
+                    WHERE b.type = 1
+                    ORDER BY b.dateAdded
+                """).fetchall()
+        except Exception:
+            rows = []
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        folders = {"menu": "Bookmarks Menu", "toolbar": "", "unfiled": "Other Bookmarks", "mobile": "Mobile Bookmarks"}
+        for title, url, folder in rows:
+            out.append({"title": title or "", "url": url or "",
+                        "folder": folders.get(folder, folder), "profile": label})
+    return out
+
+
+def sources(kind, root):
+    """Every file the bookmarks are read from, with its size and change time."""
+    if kind == "chromium":
+        paths = [os.path.join(root, "Local State")] + [p for _, p in chromium_profiles(root)]
+    else:
+        paths = [os.path.join(root, "profiles.ini")]
+        for _, prof in firefox_profiles(root):
+            db = os.path.join(prof, "places.sqlite")
+            paths += [db, db + "-wal"]
+    out = []
+    for path in paths:
+        try:
+            st = os.stat(path)
+            out.append([path, str(st.st_mtime_ns), st.st_size])   # a string: too big for JS numbers
+        except OSError:
+            out.append([path, None, None])
+    return out
+
+
+def cache_module():
+    sys.dont_write_bytecode = True   # no __pycache__ in the plugin folder
+    here = os.path.dirname(os.path.realpath(__file__))
+    loader = SourceFileLoader("commandbar_cache", os.path.join(here, "commandbar-cache"))
+    module = module_from_spec(spec_from_loader(loader.name, loader))
+    loader.exec_module(module)
+    return module
+
+
+def cached(cache, key):
+    """The cached result for `key`, or None."""
+    try:
+        dirfd = cache.open_dir(CACHE)
+        try:
+            fcntl.flock(dirfd, fcntl.LOCK_SH)
+            data = json.loads(cache.read_file(dirfd, CACHE_NAME).decode("utf-8") or "null")
+        finally:
+            os.close(dirfd)
+    except Exception:
+        return None
+    if isinstance(data, dict) and data.get("key") == key and isinstance(data.get("result"), dict):
+        return data["result"]
+    return None
+
+
+def store(cache, key, result):
+    try:
+        data = json.dumps({"key": key, "result": result}, ensure_ascii=False).encode("utf-8")
+        dirfd = cache.open_dir(CACHE)
+        try:
+            fcntl.flock(dirfd, fcntl.LOCK_EX)
+            cache.write_file(dirfd, CACHE_NAME, data)
+        finally:
+            os.close(dirfd)
+    except Exception:
+        pass   # too big or not writable: read the browser's files again next time
+
+
+def read(name, kind, root):
+    raw = chromium_bookmarks(root) if kind == "chromium" else firefox_bookmarks(root)
+    out, seen = [], set()
+    for b in raw:
+        url = str(b["url"])
+        if not url.lower().startswith(("http://", "https://")) or url in seen or len(url) > 4096:
+            continue
+        seen.add(url)
+        b["title"] = str(b["title"])[:300]
+        out.append(b)
+        if len(out) >= LIMIT:
+            break
+    return out
+
+
+def bookmarks(desktop_id):
+    result = {"browser": desktop_id, "name": "", "bookmarks": []}
+    found = resolve(desktop_id) if desktop_id else None
+    if not found:
+        return result
+    name, kind, root = found
+    try:
+        cache = cache_module()
+    except Exception:
+        cache = None
+    key = {"v": CACHE_VERSION, "browser": desktop_id, "files": sources(kind, root)}
+    hit = cached(cache, key) if cache else None
+    if hit is not None:
+        return hit
+    result["name"] = name
+    result["bookmarks"] = read(name, kind, root)
+    if cache:
+        store(cache, key, result)
+    return result
+
+
+def main():
+    desktop_id = ""
+    try:
+        desktop_id = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else default_browser()
+        result = bookmarks(desktop_id)
+    except Exception:
+        result = {"browser": desktop_id, "name": "", "bookmarks": []}
+    try:
+        json.dump(result, sys.stdout, ensure_ascii=False)
+        sys.stdout.flush()
+    except (BrokenPipeError, OSError):
+        pass
+
+
+if __name__ == "__main__":
+    main()

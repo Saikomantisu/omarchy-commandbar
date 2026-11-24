@@ -194,7 +194,7 @@ expect("g foo bar", "Search Google: foo bar")
 
 // help: topics, a topic's examples with live answers, search, and quiet previews
 { const top = q("?"), titles = top.map(r => r.title).join("|")
-  const ok = titles === "Open an app|Switch window|Files|Calculator|Units|Currency|Time zones|Dates|Emoji and symbols|Kill a process|Generate and encode|Web address|Ask your agent|Keywords"
+  const ok = titles === "Open an app|Switch window|Files|Calculator|Units|Currency|Time zones|Dates|Emoji and symbols|Kill a process|Generate and encode|Web address|Open a bookmark|Ask your agent|Keywords"
     && top.every(r => r.help && !r.run && !r.copy && r.actionLabel === "Open") && top[3].complete === "?calc" && !top[0].section
   console.log((ok ? "ok  " : "FAIL") + "  \"?\" → " + titles); if (!ok) fails++ }
 { const u = q("?units"), sub = u.map(r => r.title + " " + r.subtitle)
@@ -500,5 +500,144 @@ expect("constructor", null); expect("constructor x", null)
   }
   console.log((loose.length ? "FAIL" : "ok  ") + "  qml: every Text showing data is plain text" + (loose.length ? "   " + loose.join(", ") : ""))
   if (loose.length) fails++ }
+
+// bookmarks: fuzzy search, the "b " mode, and what's mixed into other results
+{ const marks = [
+    { title: "GitHub Issues", url: "https://github.com/issues", folder: "Dev", profile: "Default" },
+    { title: "Team Wiki", url: "https://wiki.example.com/", folder: "", profile: "Default" },
+    { title: "Rust docs", url: "https://doc.rust-lang.org/std/", folder: "Dev / Rust", profile: "Work" },
+    { title: "", url: "https://example.org/untitled", folder: "", profile: "Default" }
+  ]
+  const bq = query => Engine.run(query, config, { bookmarks: marks, browserName: "Brave", apps, windows: openWindows, now })
+  const check = (name, ok) => { console.log((ok ? "ok  " : "FAIL") + "  bookmarks: " + name); if (!ok) fails++ }
+  const all = bq("b ")
+  check("\"b \" lists every bookmark, in the browser's order", all.length === 4 && all[0].title === "GitHub Issues" && all[0].section === "Brave bookmarks")
+  check("\"b \" is the Bookmarks mode", Engine.mode("b gh", config).label === "Bookmarks" && Engine.mode("brave", config) === null)
+  check("spread-out letters match: \"b gh iss\"", bq("b gh iss")[0].title === "GitHub Issues")
+  check("words match in any order: \"b docs rust\"", bq("b docs rust")[0].title === "Rust docs")
+  check("the address and folder are searched too", bq("b rust-lang")[0].title === "Rust docs" && bq("b dev")[0].subtitle.indexOf("Dev") !== -1)
+  check("no title shows the address", bq("b untitled")[0].title === "example.org/untitled")
+  check("Enter opens the address, copy gives it", (r => r.run.kind === "open" && r.run.target === "https://github.com/issues" && r.copy === r.run.target)(bq("b gh iss")[0]))
+  check("nothing matching lists nothing", bq("b zzqx").length === 0)
+  check("\"b …\" keeps apps and windows out", bq("b brave").every(r => r.provider === "bookmarks"))
+  check("clear matches mix in under apps", (rows => rows.some(r => r.provider === "bookmarks" && r.title === "Team Wiki" && r.score < 70))(bq("wiki")))
+  check("loose matches stay out of mixed results", bq("gis").every(r => r.provider !== "bookmarks") && bq("wi").every(r => r.provider !== "bookmarks"))
+  check("brave still opens Brave first", bq("brave")[0].title === "Brave")
+  check("no bookmarks (no browser, helper failed) lists nothing", Engine.run("b x", config, { bookmarks: [], browserName: "" }).length === 0
+    && Engine.run("b ", config, {}).length === 0 && Engine.run("wiki", config, { apps }).every(r => r.provider !== "bookmarks"))
+  const off = Object.assign({}, config, { bookmarks: { inGlobalSearch: false } })
+  const offq = query => Engine.run(query, off, { bookmarks: marks, browserName: "Brave", apps, windows: openWindows, now })
+  check("inGlobalSearch: false keeps them out of normal search", offq("wiki").every(r => r.provider !== "bookmarks"))
+  check("inGlobalSearch: false still lists them after \"b \"", offq("b wiki")[0].title === "Team Wiki")
+  check("inGlobalSearch is on by default", config.bookmarks.inGlobalSearch === true)
+  const without = Object.assign({}, config, { providers: config.providers.filter(p => p !== "bookmarks") })
+  check("with bookmarks off, \"b …\" doesn't hide apps", Engine.run("b brave", without, { apps, windows: openWindows, now }).some(r => r.provider === "apps")
+    && Engine.mode("b brave", without) === null)
+  const bcmd = Object.assign({}, config, { commands: config.commands.concat([{ keyword: "b", title: "Search Bing", open: "https://www.bing.com/search?q={q}" }]) })
+  const bc = Engine.run("b wiki", bcmd, { bookmarks: marks, browserName: "Brave", apps, windows: openWindows, now })
+  check("your own \"b\" keyword wins over the mode", Engine.mode("b wiki", bcmd).label === "Search Bing"
+    && bc[0].title === "Search Bing: wiki" && bc.every(r => r.provider !== "bookmarks")) }
+
+// bin/commandbar-bookmarks: reads Chromium and Firefox profiles from a scratch home
+{ const fs = require("fs"), os = require("os"), { spawnSync } = require("child_process")
+  const home = fs.mkdtempSync(os.tmpdir() + "/commandbar-bookmarks-")
+  const env = Object.assign({}, process.env, { HOME: home, XDG_CONFIG_HOME: "", XDG_DATA_HOME: home + "/share", XDG_DATA_DIRS: home + "/none" })
+  const run = id => spawnSync("python3", [P + "bin/commandbar-bookmarks", id], { env })
+  const read = id => JSON.parse(run(id).stdout.toString())
+  const cacheDir = home + "/.cache/omarchy-commandbar", cacheFile = cacheDir + "/bookmarks.json"
+  const copies = () => fs.readdirSync(cacheDir).filter(n => n.startsWith("places-"))
+  const check = (name, ok) => { console.log((ok ? "ok  " : "FAIL") + "  bookmarks helper: " + name); if (!ok) fails++ }
+
+  const brave = home + "/.config/BraveSoftware/Brave-Browser"
+  const node = (name, url) => ({ type: "url", name, url })
+  fs.mkdirSync(brave + "/Default", { recursive: true }); fs.mkdirSync(brave + "/Profile 1")
+  fs.writeFileSync(brave + "/Local State", JSON.stringify({ profile: { info_cache: { "Default": { name: "Personal" }, "Profile 1": { name: "Work" } } } }))
+  fs.writeFileSync(brave + "/Default/Bookmarks", JSON.stringify({ roots: {
+    bookmark_bar: { type: "folder", name: "Bookmarks bar", children: [node("GitHub", "https://github.com/"),
+      { type: "folder", name: "Dev", children: [node("Docs", "https://docs.example.com/"), node("Script", "javascript:alert(1)")] }] },
+    other: { type: "folder", name: "Other bookmarks", children: [node("GitHub again", "https://github.com/"), node("Files", "file:///etc/passwd")] } } }))
+  fs.writeFileSync(brave + "/Profile 1/Bookmarks", JSON.stringify({ roots: { bookmark_bar: { type: "folder", children: [node("Jira", "https://jira.example.com/")] } } }))
+  const b = read("brave-browser.desktop")
+  check("Chromium: every profile, named from Local State", b.name === "Brave" && b.bookmarks.map(x => x.title).join("|") === "GitHub|Docs|Jira"
+    && b.bookmarks[1].folder === "Dev" && b.bookmarks[2].profile === "Work")
+  check("only http(s), each address once", b.bookmarks.every(x => /^https?:/.test(x.url)) && new Set(b.bookmarks.map(x => x.url)).size === b.bookmarks.length)
+
+  // the cache: reused while the files are unchanged, reread when one changes
+  const saved = JSON.parse(fs.readFileSync(cacheFile, "utf8"))
+  check("the result is cached privately", saved.result.name === "Brave" && (fs.statSync(cacheFile).mode & 0o777) === 0o600)
+  saved.result.bookmarks = [{ title: "From the cache", url: "https://cached.example/", folder: "", profile: "" }]
+  fs.writeFileSync(cacheFile, JSON.stringify(saved))
+  check("unchanged files are not read again", read("brave-browser.desktop").bookmarks[0].title === "From the cache")
+  fs.writeFileSync(brave + "/Profile 1/Bookmarks", JSON.stringify({ roots: { bookmark_bar: { type: "folder", children: [node("Jira", "https://jira.example.com/"), node("New", "https://new.example.com/")] } } }))
+  check("a changed bookmarks file is read again", read("brave-browser.desktop").bookmarks.map(x => x.title).join("|") === "GitHub|Docs|Jira|New")
+  fs.mkdirSync(brave + "/Profile 2"); fs.writeFileSync(brave + "/Profile 2/Bookmarks", JSON.stringify({ roots: { other: { type: "folder", name: "Other", children: [node("Two", "https://two.example.com/")] } } }))
+  check("a new profile is read", read("brave-browser.desktop").bookmarks.some(x => x.title === "Two"))
+  fs.writeFileSync(cacheFile, "not json")
+  check("a broken cache file is replaced", read("brave-browser.desktop").bookmarks.length === 5 && JSON.parse(fs.readFileSync(cacheFile, "utf8")).result.name === "Brave")
+
+  const ff = home + "/.mozilla/firefox", prof = ff + "/abc.default-release"
+  fs.mkdirSync(prof, { recursive: true })
+  fs.writeFileSync(ff + "/profiles.ini", "[Profile0]\nName=default-release\nIsRelative=1\nPath=abc.default-release\nDefault=1\n")
+  spawnSync("python3", ["-c", `import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.executescript("""
+CREATE TABLE moz_places (id INTEGER PRIMARY KEY, url TEXT);
+CREATE TABLE moz_bookmarks (id INTEGER PRIMARY KEY, type INTEGER, fk INTEGER, parent INTEGER, title TEXT, dateAdded INTEGER);
+INSERT INTO moz_places VALUES (1, 'https://mozilla.org/'), (2, 'place:sort=8');
+INSERT INTO moz_bookmarks VALUES (10, 2, NULL, 1, 'toolbar', 0), (11, 1, 1, 10, 'Mozilla', 1), (12, 1, 2, 10, 'Recent', 2);
+""")
+c.commit()`, prof + "/places.sqlite"])
+  const f = read("firefox.desktop")
+  check("Firefox: places.sqlite, place: queries left out", f.name === "Firefox" && f.bookmarks.length === 1 && f.bookmarks[0].title === "Mozilla" && f.bookmarks[0].url === "https://mozilla.org/")
+  check("Firefox: the copy is removed from the cache folder", copies().length === 0)
+  check("Firefox: nothing written outside the cache folder", fs.readdirSync(prof).join() === "places.sqlite")
+
+  // current Zen and new Firefox 147+ installs keep profiles under ~/.config
+  const places = (db, title, url) => spawnSync("python3", ["-c", `import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.executescript("""
+CREATE TABLE moz_places (id INTEGER PRIMARY KEY, url TEXT);
+CREATE TABLE moz_bookmarks (id INTEGER PRIMARY KEY, type INTEGER, fk INTEGER, parent INTEGER, title TEXT, dateAdded INTEGER);
+INSERT INTO moz_bookmarks VALUES (10, 2, NULL, 1, 'toolbar', 0);
+""")
+c.execute("INSERT INTO moz_places VALUES (1, ?)", (sys.argv[3],))
+c.execute("INSERT INTO moz_bookmarks VALUES (11, 1, 1, 10, ?, 1)", (sys.argv[2],))
+c.commit()`, db, title, url])
+  const zen = home + "/.config/zen", zprof = zen + "/xyz.Default (release)"
+  fs.mkdirSync(zprof, { recursive: true })
+  fs.writeFileSync(zen + "/profiles.ini", "[Profile0]\nName=Default (release)\nIsRelative=1\nPath=xyz.Default (release)\nDefault=1\n")
+  places(zprof + "/places.sqlite", "Zen docs", "https://docs.zen-browser.app/")
+  check("Zen: profiles under ~/.config/zen", (r => r.name === "Zen" && r.bookmarks.length === 1 && r.bookmarks[0].title === "Zen docs")(read("zen.desktop")))
+  const xff = home + "/.config/mozilla/firefox", xprof = xff + "/new.default-release"
+  fs.mkdirSync(xprof, { recursive: true })
+  fs.writeFileSync(xff + "/profiles.ini", "[Profile0]\nName=default-release\nIsRelative=1\nPath=new.default-release\nDefault=1\n")
+  places(xprof + "/places.sqlite", "New Firefox", "https://new.mozilla.org/")
+  check("Firefox: ~/.config/mozilla/firefox comes before ~/.mozilla/firefox", read("firefox.desktop").bookmarks.map(x => x.title).join() === "New Firefox")
+  fs.rmSync(home + "/.config/mozilla", { recursive: true })
+  check("Firefox: ~/.mozilla/firefox when there's no XDG profile folder", read("firefox.desktop").bookmarks.map(x => x.title).join() === "Mozilla")
+
+  fs.writeFileSync(prof + "/places.sqlite", "this is not a database")
+  const broken = run("firefox.desktop"), bj = JSON.parse(broken.stdout.toString())
+  check("Firefox: an unreadable database lists nothing, without failing", broken.status === 0 && bj.bookmarks.length === 0)
+  check("Firefox: the copy is removed when reading fails", copies().length === 0)
+  const stale = cacheDir + "/places-leftover", fresh = cacheDir + "/places-inuse"
+  fs.mkdirSync(stale); fs.writeFileSync(stale + "/places.sqlite", "x"); fs.mkdirSync(fresh)
+  const old = new Date(Date.now() - 3600e3); fs.utimesSync(stale, old, old)
+  fs.appendFileSync(prof + "/places.sqlite", "!"); run("firefox.desktop")
+  check("Firefox: copies left by a killed run are swept, ones in use are kept", copies().join() === "places-inuse")
+  fs.rmSync(fresh, { recursive: true })
+  fs.rmSync(ff + "/profiles.ini")
+  check("Firefox: no profiles lists nothing", (r => r.status === 0 && JSON.parse(r.stdout).bookmarks.length === 0)(run("firefox.desktop")))
+
+  fs.mkdirSync(home + "/share/applications", { recursive: true })
+  fs.writeFileSync(home + "/share/applications/my-browser.desktop", "[Desktop Entry]\nExec=brave-browser %U\n")
+  check("a wrapper entry is followed to its browser", read("my-browser.desktop").name === "Brave")
+  fs.writeFileSync(home + "/share/applications/env-browser.desktop", "[Desktop Entry]\nExec=env FOO=1 BAR=\"a b\" brave-browser %U\n")
+  check("an entry run through env is followed to its browser", read("env-browser.desktop").name === "Brave")
+  check("an unknown browser lists nothing", (r => r.name === "" && r.bookmarks.length === 0)(read("lynx.desktop")))
+  fs.rmSync(cacheDir, { recursive: true }); fs.writeFileSync(cacheDir, "a file where the cache folder should be")
+  check("an unusable cache folder still lists bookmarks", (r => r.status === 0 && JSON.parse(r.stdout).bookmarks.length === 5)(run("brave-browser.desktop")))
+  check("nothing written to the plugin folder", !fs.existsSync(P + "bin/__pycache__"))
+  fs.rmSync(home, { recursive: true, force: true }) }
 
 console.log(fails ? fails + " FAILED" : "all passed"); process.exit(fails ? 1 : 0)

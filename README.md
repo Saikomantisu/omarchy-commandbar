@@ -49,6 +49,7 @@ Then press **Super + Period** to open it. Everything it needs comes with Omarchy
 | Emoji and symbols | `:fire`, `:arrow`, `:degree` |
 | Processes | `kill chrome` |
 | Web addresses | `example.com`, `localhost:3000` |
+| Browser bookmarks | `b gh iss` (letters can be spread out) |
 | UUIDs, hashes, encoding | `uuid`, `sha256 hello`, `base64 hello` |
 | Your AI agent | `ai why is my wifi slow` |
 | Keyword commands | `g …`, `yt …`, or your own |
@@ -74,6 +75,8 @@ Put your settings in `~/.config/omarchy/extensions/commandbar.json`. They overri
 }
 ```
 
+To keep bookmarks out of normal search and show them only after `b `, set `"bookmarks": { "inGlobalSearch": false }`.
+
 > [!WARNING]
 > `ai` starts your Omarchy agent with its auto-approve setting, so the agent runs commands without asking. The row says so before you press Enter.
 
@@ -82,6 +85,7 @@ Put your settings in `~/.config/omarchy/extensions/commandbar.json`. They overri
 - The only network request is for exchange rates, at most once a day. What you type isn't sent anywhere, except web keyword searches like `g` and prompts you give your agent with `ai`.
 - File search and browsing run `fd` only while files are on screen. They read file names, not their contents. Searching by name covers your home folder and leaves out hidden files; browsing lists the folder you type.
 - A typed web address opens only when you press Enter, and only `http` and `https` addresses open.
+- Bookmarks come from your default browser's profile folder, and only `http` and `https` ones are listed. The list is kept in `~/.cache/omarchy-commandbar/bookmarks.json` and read again only when the browser's bookmark files change. Firefox-family bookmarks are read from a copy made in `~/.cache/omarchy-commandbar/` and removed straight after, even if reading it fails.
 - It writes only to `~/.cache/omarchy-commandbar/` and never changes your Hyprland or Omarchy config files.
 - Its hotkey is set in the running Hyprland and removed with the plugin.
 

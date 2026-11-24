@@ -25,6 +25,7 @@ import stat
 import sys
 
 LIMITS = {
+    "bookmarks.json": 8 * 1024 * 1024,   # written by bin/commandbar-bookmarks
     "last-query": 4 * 1024,
     "launches.json": 64 * 1024,
     "rates.json": 256 * 1024,   # matches ratesMaxBytes in CommandBar.qml
